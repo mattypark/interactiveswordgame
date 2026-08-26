@@ -1,11 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import type { PlayVolume } from '../hands/project.js';
+
+export type ViewMode = 'third' | 'first';
+
 export interface Stage {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
+  view: ViewMode;
+  /** Move the camera between watching the box and standing in it. */
+  setView(mode: ViewMode, volume: PlayVolume): void;
   render(): void;
 }
 
@@ -14,6 +21,18 @@ const BACKGROUND = 0x12131c;
 /** Metres. The reference sits the viewer just above and behind the play volume. */
 const CAMERA_START = new THREE.Vector3(0, 0.78, 1.55);
 const CAMERA_TARGET = new THREE.Vector3(0, 0.2, 0);
+
+const THIRD_FOV = 46;
+/** Wider in first person — narrow feels like looking down a tube. */
+const FIRST_FOV = 62;
+
+/**
+ * Where a head sits relative to the hand it's watching: a bit up and a bit
+ * back. Putting the camera exactly at the hand would bury it inside the
+ * skeleton.
+ */
+const EYE_ABOVE_HAND = 0.19;
+const EYE_BEHIND_HAND = 0.34;
 
 export function createStage(canvas: HTMLCanvasElement): Stage {
   const renderer = new THREE.WebGLRenderer({
@@ -29,7 +48,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   scene.background = new THREE.Color(BACKGROUND);
   scene.fog = new THREE.Fog(BACKGROUND, 3.2, 9);
 
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.01, 100);
+  const camera = new THREE.PerspectiveCamera(THIRD_FOV, 1, 0.01, 100);
   camera.position.copy(CAMERA_START);
 
   const controls = new OrbitControls(camera, canvas);
@@ -73,14 +92,53 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   resize();
   window.addEventListener('resize', resize);
 
-  return {
+  let view: ViewMode = 'third';
+
+  const stage: Stage = {
     renderer,
     scene,
     camera,
     controls,
-    render() {
+    get view() {
+      return view;
+    },
+    setView(mode, volume) {
+      view = mode;
+
+      if (mode === 'first') {
+        // Stand where the player stands: just behind and above their hand,
+        // looking down the length of the box.
+        camera.fov = FIRST_FOV;
+        // Measured from the middle of the box, not its near face: the hand
+        // spends most of its time near the centre, and that is what should be
+        // an arm's length in front of you.
+        camera.position.set(
+          volume.centre.x,
+          volume.centre.y + EYE_ABOVE_HAND,
+          volume.centre.z + EYE_BEHIND_HAND,
+        );
+        controls.target.set(
+          volume.centre.x,
+          volume.centre.y - 0.04,
+          volume.centre.z - volume.size.z / 2,
+        );
+        // Orbiting would walk the camera off the player's head.
+        controls.enabled = false;
+      } else {
+        camera.fov = THIRD_FOV;
+        camera.position.copy(CAMERA_START);
+        controls.target.copy(CAMERA_TARGET);
+        controls.enabled = true;
+      }
+
+      camera.updateProjectionMatrix();
       controls.update();
+    },
+    render() {
+      if (controls.enabled) controls.update();
       renderer.render(scene, camera);
     },
   };
+
+  return stage;
 }

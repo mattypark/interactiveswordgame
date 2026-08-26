@@ -195,6 +195,16 @@ class TrackedHand {
 
 export class HandsRig {
   readonly group = new THREE.Group();
+
+  /**
+   * Whether the volume has been centred on wherever the user actually is.
+   *
+   * Done automatically the first time a hand is seen, because the alternative
+   * is assuming everyone sits square to the lens at exactly mid depth — and
+   * anyone sitting closer than that starts pinned to the far wall of the box.
+   * R re-centres it later.
+   */
+  private autoCentred = false;
   readonly hands: TrackedHand[] = Array.from({ length: MAX_HANDS }, () => new TrackedHand());
 
   volume: PlayVolume = DEFAULT_PLAY_VOLUME;
@@ -218,10 +228,27 @@ export class HandsRig {
       } else {
         const handedness = result?.handedness[i]?.[0]?.categoryName ?? null;
         hand.resolve(landmarks, worldLandmarks, handedness, frame, this.volume, nowMs);
+
+        // First hand of the session defines where the middle of the box is.
+        if (!this.autoCentred && this.volume.origin === null && hand.state.present) {
+          this.autoCentred = true;
+          this.recentre(hand.state.raw, hand.state.depth);
+        }
       }
 
       hand.draw();
     }
+  }
+
+  /** Treat this hand pose as the centre of the volume. */
+  recentre(raw: { x: number; y: number }, depth: number): void {
+    this.volume = { ...this.volume, origin: { x: raw.x, y: raw.y, depth } };
+    this.autoCentred = true;
+  }
+
+  clearOrigin(): void {
+    this.volume = { ...this.volume, origin: null };
+    this.autoCentred = true;
   }
 
   dispose(): void {

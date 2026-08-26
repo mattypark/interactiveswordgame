@@ -151,9 +151,13 @@ export const DEFAULT_PLAY_VOLUME: PlayVolume = {
   // one axis a single webcam gives you and it should be worth using: near the
   // lens throws the block right up to the viewer, arm's length pushes it deep
   // into the scene, and perspective does the rest.
-  nearDepth: 0.24,
-  farDepth: 0.86,
-  mirror: false,
+  // A band you can actually sweep with your forearm. The old 24-86cm was the
+  // full range the tracker resolves, not the range a person comfortably moves
+  // through — most of the box sat outside where anyone's hand goes, so a
+  // normal sitting distance already read as "all the way forward".
+  nearDepth: 0.3,
+  farDepth: 0.62,
+  mirror: true,
   invertDepth: true,
   origin: null,
 };

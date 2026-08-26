@@ -12,6 +12,7 @@ export type HudAction =
   | { type: 'invert-depth' }
   | { type: 'swap-hands' }
   | { type: 'set-origin' }
+  | { type: 'toggle-view' }
   | { type: 'calibrate'; step: 'rest' | 'max' | 'reset' };
 
 type HudHandler = (action: HudAction) => void;
@@ -140,6 +141,8 @@ export class Hud {
         this.emit({ type: 'swap-hands' });
       } else if (event.key === 'r' || event.key === 'R') {
         this.emit({ type: 'set-origin' });
+      } else if (event.key === 'v' || event.key === 'V') {
+        this.emit({ type: 'toggle-view' });
       }
     });
   }
@@ -209,7 +212,8 @@ export class Hud {
       'setup',
       nodes.setupLine,
       `M mirror ${rig.mirror ? 'on' : 'off'} · D ${rig.invertDepth ? 'push' : 'literal'} · ` +
-        `H hands ${rig.swapHands ? 'swapped' : 'normal'} · R ${rig.originSet ? 'spawn set' : 'set spawn'}`,
+        `H hands ${rig.swapHands ? 'swapped' : 'normal'} · ` +
+        `R ${rig.originSet ? 'spawn set' : 'set spawn'} · V ${rig.view}-person`,
     );
 
     this.write('hits', nodes.hitsLine, `hits: ${rig.hits}`);

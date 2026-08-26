@@ -65,17 +65,21 @@ rather than constants, and the HUD shows the current state of each.
 | **D** | Flip the depth axis. `push` (default) means moving your hand toward the camera pushes the object away into the scene; `literal` means toward the camera brings it toward you. |
 | **H** | Swap which hand is blue and which is red, if the labels come out backwards. |
 | **R** | Set a spawn point — see below. |
+| **V** | First person vs third person. |
 
 ### Spawn point (R)
 
-By default the middle of the box is the middle of the camera frame at mid
-depth, which assumes you're sitting square to the lens at exactly the right
-distance. You're probably not.
+**It centres itself on the first hand it sees**, so wherever you happen to be
+sitting becomes the middle of the box. Without that, the middle is the middle
+of the camera frame at mid depth — which assumes you sit square to the lens at
+exactly the right distance, and anyone closer than that starts pinned to the
+far wall.
 
-Hold your hand wherever it's comfortable and press **R**. That pose becomes the
-centre, and everything moves relative to it — so you get the full range of the
-box without having to sit anywhere in particular. Press **R** again with no
-hand in frame to clear it.
+To re-centre later, hold your hand wherever it's comfortable and press **R**.
+Press **R** with no hand in frame to go back to the raw mapping.
+
+The depth band is 30–62cm: the range a forearm actually sweeps, not the full
+range the tracker can resolve.
 
 Your left hand draws blue, your right red.
 
@@ -93,9 +97,19 @@ instead of having the hand just stop responding.
 Near the lens brings the block right up to the viewer; arm's length pushes it
 deep into the scene. Perspective does the rest, so it grows and shrinks.
 
-## The dummy
+## Views (V)
 
-A pell-style training dummy stands at the back of the play volume. Punch it and
+**Third person** watches the box from outside; drag to orbit.
+**First person** puts you where you're standing — your hand is right in front
+of your face at arm's length, and the dummy and the NPC loom at real scale.
+Orbit is off in first person, since orbiting would walk the camera off your own
+head.
+
+## The dummy and the NPC
+
+Two things to hit, and they're different problems.
+
+The **dummy** stands still. A pell-style training post at the back of the play volume. Punch it and
 it rocks back and settles; the HUD counts hits and shows the speed of the last
 one. Thrown blocks count too.
 
@@ -106,6 +120,11 @@ block don't strike, so you can move things past it.
 
 The rocking is an under-damped spring rather than a critically damped one. The
 overshoot on the way back is the part that reads as "that landed".
+
+The **NPC** doesn't. It paces its beat, stops and turns to watch you when you
+get close, and staggers backward when hit before getting on with it. Connecting
+with something that moves is a different skill from connecting with something
+that doesn't, which is the point of having both.
 
 ## Throwing
 

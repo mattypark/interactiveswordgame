@@ -4,6 +4,7 @@ import { createStage } from './scene/stage.js';
 import { createGrid } from './scene/grid.js';
 import { PlayVolumeView } from './scene/volume.js';
 import { Dummy } from './scene/dummy.js';
+import { Npc } from './scene/npc.js';
 import { ClayWorld } from './scene/clay.js';
 import { Vision } from './hands/vision.js';
 import { HandsRig, setSwapHandedness, type HandState } from './hands/hands.js';
@@ -46,12 +47,17 @@ stage.scene.add(volumeView.group);
 const bodies = new Map<string, Body>();
 let physicsEnabled = true;
 
-const dummy = new Dummy(new THREE.Vector3(0, 0, -0.46));
+const dummy = new Dummy(new THREE.Vector3(-0.24, 0, -0.44));
 stage.scene.add(dummy.group);
 
-/** One detector per hand, plus one shared by everything thrown at it. */
+const npc = new Npc();
+stage.scene.add(npc.group);
+
+/** Detectors per hand per target, plus ones shared by everything thrown. */
 const handStrikes = hands.hands.map(() => new StrikeDetector());
+const npcHandStrikes = hands.hands.map(() => new StrikeDetector());
 const throwStrike = new StrikeDetector(0.9);
+const npcThrowStrike = new StrikeDetector(0.9);
 
 const calibration = new CalibrationFlow();
 
@@ -145,6 +151,11 @@ hud.on((action) => {
       hands.volume = { ...hands.volume, mirror: rig.mirror };
       break;
 
+    case 'toggle-view':
+      rig.view = rig.view === 'third' ? 'first' : 'third';
+      stage.setView(rig.view, hands.volume);
+      break;
+
     case 'invert-depth':
       rig.invertDepth = !rig.invertDepth;
       hands.volume = { ...hands.volume, invertDepth: rig.invertDepth };
@@ -159,9 +170,9 @@ hud.on((action) => {
       // Hold your hand somewhere comfortable and press R: that pose becomes
       // the middle of the box. Press it with no hand in frame to clear.
       const hand = hands.states.find((state) => state.present);
-      const origin = hand ? { x: hand.raw.x, y: hand.raw.y, depth: hand.depth } : null;
-      hands.volume = { ...hands.volume, origin };
-      rig.originSet = origin !== null;
+      if (hand) hands.recentre(hand.raw, hand.depth);
+      else hands.clearOrigin();
+      rig.originSet = hands.volume.origin !== null;
       break;
     }
 
@@ -192,6 +203,14 @@ void vision.start(hud.pipVideo);
 /** Rebuilt each frame — objects move, and grabbing changes what's available. */
 const boxes: Aabb[] = [];
 
+function npcBox(): Aabb {
+  return {
+    id: 'npc',
+    min: { x: npc.bounds.min.x, y: npc.bounds.min.y, z: npc.bounds.min.z },
+    max: { x: npc.bounds.max.x, y: npc.bounds.max.y, z: npc.bounds.max.z },
+  };
+}
+
 function dummyBox(): Aabb {
   return {
     id: 'dummy',
@@ -200,8 +219,9 @@ function dummyBox(): Aabb {
   };
 }
 
-function landHit(direction: { x: number; z: number }, speed: number): void {
-  dummy.strike(direction, speed);
+function landHit(target: 'dummy' | 'npc', direction: { x: number; z: number }, speed: number): void {
+  if (target === 'npc') npc.strike(direction, speed);
+  else dummy.strike(direction, speed);
   rig.hits += 1;
   rig.lastHitSpeed = speed;
 }
@@ -305,15 +325,16 @@ function updateGrabbing(): void {
       const held = grab.held ? world.find(grab.held) : null;
       const point = held ? held.mesh.position : state.anchor;
       const margin = held ? Math.max(...held.mesh.scale.toArray()) * 0.055 : 0.03;
+      const velocity = grabber.velocity.velocity();
+      const now = performance.now();
 
-      const strike = handStrikes[i]!.test(
-        dummyBox(),
-        point,
-        grabber.velocity.velocity(),
-        performance.now(),
-        margin,
-      );
-      if (strike) landHit(strike.direction, strike.speed);
+      // Separate detectors per target, so a swing that clips both counts on
+      // both rather than one cooldown eating the other.
+      const onDummy = handStrikes[i]!.test(dummyBox(), point, velocity, now, margin);
+      if (onDummy) landHit('dummy', onDummy.direction, onDummy.speed);
+
+      const onNpc = npcHandStrikes[i]!.test(npcBox(), point, velocity, now, margin);
+      if (onNpc) landHit('npc', onNpc.direction, onNpc.speed);
     }
 
     hit = hit || grab.hit;
@@ -329,6 +350,9 @@ function updateGrabbing(): void {
     rig.depth === null ||
     (rig.depth >= hands.volume.nearDepth && rig.depth <= hands.volume.farDepth);
   volumeView.setHand(primary?.present ? primary.anchor : null, rig.depthInRange);
+
+  // The rig centres itself on the first hand it sees; keep the HUD honest.
+  rig.originSet = hands.volume.origin !== null;
 
   rig.force = primary?.grip ?? 0;
   rig.calibrated = calibration.calibrated;
@@ -353,15 +377,14 @@ function stepPhysics(dtSeconds: number): void {
     stepBody(body, dtSeconds, DEFAULT_PHYSICS);
     object.mesh.position.set(body.position.x, body.position.y, body.position.z);
 
-    const strike = throwStrike.test(
-      dummyBox(),
-      body.position,
-      body.velocity,
-      performance.now(),
-      object.mesh.scale.x * 0.045,
-    );
+    const radius = object.mesh.scale.x * 0.045;
+    const now = performance.now();
+
+    const onDummy = throwStrike.test(dummyBox(), body.position, body.velocity, now, radius);
+    const onNpc = npcThrowStrike.test(npcBox(), body.position, body.velocity, now, radius);
+    const strike = onDummy ?? onNpc;
     if (strike) {
-      landHit(strike.direction, strike.speed);
+      landHit(onDummy ? 'dummy' : 'npc', strike.direction, strike.speed);
       // Bounce it off rather than letting it sail through the torso.
       body.velocity.x = -body.velocity.x * 0.45;
       body.velocity.z = -body.velocity.z * 0.45;
@@ -384,6 +407,10 @@ function frame(): void {
   updateGrabbing();
   stepPhysics(dt);
   dummy.update(dt);
+
+  // The NPC watches whichever hand is being tracked.
+  const watched = hands.states.find((state) => state.present) ?? null;
+  npc.update(dt, watched ? { x: watched.anchor.x, z: watched.anchor.z } : null);
 
   hud.sync(rig);
   hud.setCalibrationState(calibration.status);
@@ -411,5 +438,6 @@ if (import.meta.env.DEV) {
     bodies,
     volumeView,
     dummy,
+    npc,
   };
 }

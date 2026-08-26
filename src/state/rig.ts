@@ -42,6 +42,8 @@ export interface Rig {
   swapHands: boolean;
   /** A recentre point has been saved. Set with R. */
   originSet: boolean;
+  /** Camera perspective. Toggled with V. */
+  view: 'third' | 'first';
 
   /** Strikes landed on the dummy this session. */
   hits: number;
@@ -71,10 +73,11 @@ export const rig: Rig = {
 
   depth: null,
   depthInRange: true,
-  mirror: false,
+  mirror: true,
   invertDepth: true,
   swapHands: false,
   originSet: false,
+  view: 'third',
 
   hits: 0,
   lastHitSpeed: null,
