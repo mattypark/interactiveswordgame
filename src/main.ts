@@ -109,16 +109,31 @@ let lastFrameMs = performance.now();
  */
 const MAX_FRAME_STEP = 1 / 20;
 
+/** Reused so the camera nudge doesn't allocate a vector every frame. */
+const ZERO_IMPACT = { x: 0, y: 0 };
+
 function frame(): void {
   const now = performance.now();
   const dt = Math.min((now - lastFrameMs) / 1000, MAX_FRAME_STEP);
   lastFrameMs = now;
 
   tracking.update(now);
-  if (router.screen === 'playing') world?.update(dt, now);
+
+  // Tracking runs on real time; the game runs on time the hit-stop hands back,
+  // so a landed punch freezes the fight without freezing your own hands.
+  const fight = world instanceof FightWorld ? world : null;
+  if (fight) fight.cameraFacing = stage.camera.quaternion;
+  const gameDt = fight ? fight.hitStop.step(dt) : dt;
+
+  // Effects run on the real clock so a freeze doesn't also freeze the shake.
+  if (fight && router.screen === 'playing') fight.updateEffects(dt, now);
+  if (router.screen === 'playing') world?.update(gameDt, now);
+
+  if (fight) stage.setImpact(fight.shake.offset, fight.shake.fovKick);
+  else stage.setImpact(ZERO_IMPACT, 0);
 
   hud.sync(rig);
-  hud.syncFight(router.screen === 'playing' ? rig.fight : null);
+  hud.syncFight(router.screen === 'playing' ? rig.fight : null, rig.lastDamage, now);
   hud.setCalibrationState(tracking.calibration.status);
   if (tracking.vision.error) hud.setNotice(tracking.vision.error);
   stage.render();

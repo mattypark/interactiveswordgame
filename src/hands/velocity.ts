@@ -61,6 +61,32 @@ export class VelocityTracker {
     return Math.hypot(v.x, v.y, v.z);
   }
 
+  /**
+   * Fastest the hand was moving at any point in the window.
+   *
+   * A punch is a spike, and averaging across the window flattens it — the
+   * throw and the follow-through drag the mean down below the moment that
+   * actually mattered. Thresholds should be judged against the peak.
+   */
+  get peakSpeed(): number {
+    let peak = 0;
+    for (let i = 1; i < this.samples.length; i += 1) {
+      const a = this.samples[i - 1]!;
+      const b = this.samples[i]!;
+      const dt = (b.time - a.time) / 1000;
+      if (dt <= 1e-4) continue;
+      const speed = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) / dt;
+      if (speed > peak) peak = speed;
+    }
+    return peak;
+  }
+
+  /** Where the hand was at the start of the window, for a swept hit test. */
+  get from(): Vec3 | null {
+    const first = this.samples[0];
+    return first ? { x: first.x, y: first.y, z: first.z } : null;
+  }
+
   reset(): void {
     this.samples.length = 0;
   }

@@ -29,6 +29,7 @@
     "src/hands/head.ts",
     "src/game/punch.ts",
     "src/game/match.ts",
-    "src/game/fight-ai.ts"
+    "src/game/fight-ai.ts",
+    "src/game/juice.ts"
   ]
 }

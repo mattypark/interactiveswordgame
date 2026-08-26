@@ -11,11 +11,26 @@ import type { Doc, Id } from './_generated/dataModel';
  * repeat a hit — the receiver applies the difference between the sequence it
  * has seen and the one it's given.
  *
- * That trusts each client to score its own punches. For a game you play with
- * friends that's the right trade: server-side hit resolution would need both
- * players' full skeletons at 60Hz, which is far more traffic and latency than
- * the cheating it prevents is worth.
+ * That trusts each client to score its own punches — the same split Roblox
+ * combat systems use, where the client casts for responsiveness and the server
+ * owns the damage. Server-side hit resolution would need both players' full
+ * hand skeletons at 60Hz, which is far more traffic and latency than the
+ * cheating it prevents is worth.
+ *
+ * What the server does do is refuse anything impossible: a punch harder than
+ * one can be, punches faster than a hand can throw them, and more than one
+ * punch reported per update. None of that needs the skeletons, and it turns
+ * "trusts the client" into "trusts the client within limits".
  */
+
+/** Hardest a single punch can be, matching punchDamage's own ceiling. */
+const MAX_PUNCH_DAMAGE = 22;
+
+/** Fastest a hand can legitimately throw them, from CHAIN_COOLDOWN_MS. */
+const MIN_PUNCH_INTERVAL_MS = 140;
+
+/** Punches one update may report. More than one means a client is inventing them. */
+const MAX_PUNCHES_PER_PUSH = 1;
 
 const vec = v.object({ x: v.number(), y: v.number(), z: v.number() });
 
@@ -45,18 +60,28 @@ export const push = mutation({
     const theirSide = side === 'host' ? 'guest' : 'host';
     const theirs = match[theirSide];
 
-    // Damage from punches the other side hasn't been told about yet.
-    const landed = Math.max(0, args.punchSeq - mine.punchSeq);
-    const theirHealth = landed > 0 ? Math.max(0, theirs.health - args.punchDamage) : theirs.health;
+    const now = Date.now();
+
+    // Damage from punches the other side hasn't been told about yet, clamped
+    // to what the game can actually produce.
+    const claimed = Math.max(0, args.punchSeq - mine.punchSeq);
+    const landed = Math.min(claimed, MAX_PUNCHES_PER_PUSH);
+    const tooSoon = now - mine.updatedAt < MIN_PUNCH_INTERVAL_MS;
+    const damage = Math.min(Math.max(0, args.punchDamage), MAX_PUNCH_DAMAGE);
+
+    const applied = landed > 0 && !tooSoon ? damage : 0;
+    const theirHealth = Math.max(0, theirs.health - applied);
 
     await ctx.db.patch(args.matchId, {
       [side]: {
         ...mine,
         head: args.head,
         fist: args.fist,
-        punchSeq: args.punchSeq,
-        punchDamage: args.punchDamage,
-        updatedAt: Date.now(),
+        // Store the sequence the server accepted, not the one claimed, so a
+        // client can't run its counter up and cash it in later.
+        punchSeq: mine.punchSeq + landed,
+        punchDamage: applied,
+        updatedAt: now,
       },
       [theirSide]: { ...theirs, health: theirHealth },
     } as never);

@@ -16,6 +16,8 @@ export interface Stage {
   setView(mode: ViewMode, volume: PlayVolume): void;
   /** Repaint the background, fog and lights for a map. */
   applyMap(map: MapDefinition): void;
+  /** Nudge the camera on impact: offset in metres, extra field of view in degrees. */
+  setImpact(offset: { x: number; y: number }, fovKick: number): void;
   render(): void;
 }
 
@@ -46,6 +48,11 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Filmic tone mapping and a little exposure: colours stay saturated instead
+  // of washing out where the key light lands, which is what gives the bright
+  // primary-coloured look this borrows from its punch.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.18;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND);
@@ -84,6 +91,12 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   fill.position.set(-1.6, 1.1, -1.4);
   scene.add(fill);
 
+  // A rim light from behind separates the fighters from the background, which
+  // is most of why chunky low-poly characters read cleanly at a glance.
+  const rim = new THREE.DirectionalLight(0xffffff, 0.9);
+  rim.position.set(0.2, 1.6, -2.6);
+  scene.add(rim);
+
   function resize(): void {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
@@ -97,6 +110,12 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   window.addEventListener('resize', resize);
 
   let view: ViewMode = 'third';
+
+  // The camera's resting place, before any impact nudge is added on top.
+  const basePosition = new THREE.Vector3().copy(CAMERA_START);
+  let baseFov = THIRD_FOV;
+  const impactOffset = { x: 0, y: 0 };
+  let impactFov = 0;
 
   const stage: Stage = {
     renderer,
@@ -147,12 +166,39 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
         controls.enabled = true;
       }
 
+      basePosition.copy(camera.position);
+      baseFov = camera.fov;
       camera.updateProjectionMatrix();
       controls.update();
     },
+    setImpact(offset, fovKick) {
+      impactOffset.x = offset.x;
+      impactOffset.y = offset.y;
+      impactFov = fovKick;
+    },
     render() {
-      if (controls.enabled) controls.update();
+      if (controls.enabled) {
+        controls.update();
+        // Orbiting redefines where the camera rests, so the shake is added on
+        // top of wherever the user just put it.
+        basePosition.copy(camera.position);
+      }
+
+      const shaking = impactOffset.x !== 0 || impactOffset.y !== 0 || impactFov !== 0;
+      if (shaking) {
+        camera.position.set(
+          basePosition.x + impactOffset.x,
+          basePosition.y + impactOffset.y,
+          basePosition.z,
+        );
+        camera.fov = baseFov + impactFov;
+        camera.updateProjectionMatrix();
+      }
+
       renderer.render(scene, camera);
+
+      // Put it back, so the nudge never accumulates into a drift.
+      if (shaking) camera.position.copy(basePosition);
     },
   };
 

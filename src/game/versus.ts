@@ -111,13 +111,18 @@ export class VersusWorld {
       if (!runtime.state.present) continue;
 
       const punch = this.punches[i]!.test(
-        runtime.state.anchor,
-        runtime.velocity.velocity(),
+        {
+          points: runtime.strike,
+          previous: runtime.previousStrike,
+          velocity: runtime.velocity.velocity(),
+          peakSpeed: runtime.velocity.peakSpeed,
+        },
         this.headTarget,
         radius,
         nowMs,
       );
       if (!punch) continue;
+      this.punches[i]!.resolve('landed');
 
       this.punchSeq += 1;
       this.punchDamage = punchDamage(punch);
@@ -153,6 +158,7 @@ export class VersusWorld {
       timeLeft: 90,
       winner: over ? (you.rounds >= ROUNDS_TO_WIN ? 'you' : 'them') : null,
       lastRoundWinner: null,
+      combo: 0,
     };
   }
 

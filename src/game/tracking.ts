@@ -22,9 +22,22 @@ import { rig } from '../state/rig.js';
  * warms up before the first frame of play, not during it.
  */
 
+/**
+ * The knuckle line — index, middle, ring and pinky MCP joints.
+ *
+ * These are the surface a fist actually strikes with, and testing four of them
+ * is the RaycastHitbox idea: one point at the palm centre throws away punches
+ * whose knuckles were dead on target.
+ */
+export const STRIKE_LANDMARKS = [5, 9, 13, 17] as const;
+
 export interface HandRuntime {
   state: HandState;
   velocity: VelocityTracker;
+  /** Knuckle positions this frame, in world space. */
+  strike: THREE.Vector3[];
+  /** Where they were last frame, for the swept hit test. Null on the first. */
+  previousStrike: THREE.Vector3[] | null;
 }
 
 export interface HeadState {
@@ -95,6 +108,8 @@ export class Tracking {
     this.runtimes = this.hands.hands.map((hand) => ({
       state: hand.state,
       velocity: new VelocityTracker(),
+      strike: STRIKE_LANDMARKS.map(() => new THREE.Vector3()),
+      previousStrike: null,
     }));
   }
 
@@ -198,8 +213,13 @@ export class Tracking {
           ? normaliseGrip(state.curl, this.calibration.calibration)
           : 0;
 
-      if (state.present) velocity.push(state.anchor, nowMs);
-      else velocity.reset();
+      if (state.present) {
+        velocity.push(state.anchor, nowMs);
+        this.trackStrikePoints(runtime);
+      } else {
+        velocity.reset();
+        runtime.previousStrike = null;
+      }
     }
 
     this.updateHead(nowMs);
@@ -273,6 +293,22 @@ export class Tracking {
     this.headFilter.reset();
     this.headMarker.visible = false;
     rig.headDepth = null;
+  }
+
+  /** Roll this frame's knuckle positions forward, keeping last frame's. */
+  private trackStrikePoints(runtime: HandRuntime): void {
+    if (runtime.previousStrike === null) {
+      runtime.previousStrike = runtime.strike.map((point) => point.clone());
+    } else {
+      for (let i = 0; i < runtime.strike.length; i += 1) {
+        runtime.previousStrike[i]!.copy(runtime.strike[i]!);
+      }
+    }
+
+    for (let i = 0; i < STRIKE_LANDMARKS.length; i += 1) {
+      const joint = runtime.state.joints[STRIKE_LANDMARKS[i]!];
+      if (joint) runtime.strike[i]!.copy(joint);
+    }
   }
 
   private updateSetup(visible: HandState | null, nowMs: number): void {

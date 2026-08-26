@@ -128,6 +128,24 @@ head.
 
 ## Fighting
 
+Borrowed from how Roblox melee systems solve this, because the problems are the
+same and they were solved there years ago:
+
+- **Multi-point swept hitbox.** Four points across the knuckles, each tested
+  along the path it swept since last frame — the RaycastHitbox idea. One point
+  at the palm centre throws away punches whose knuckles were dead on target,
+  and testing only where a point *ended up* lets a fast fist pass clean through
+  a head between frames.
+- **Startup, active, recovery.** A swing arms a hitbox for 130ms rather than
+  being a single instant test. At 30fps the frame a punch commits on is usually
+  not the frame it touches.
+- **Tempo.** Landing one lets you chain in 150ms; swinging into a guard costs
+  you 420ms. Rewarding contact with initiative is most of what makes trading
+  punches feel like a rhythm.
+- **Hit-stop, shake and a combo count.** The punch is a few lines of maths;
+  everything that makes it feel like a punch happens in the fifth of a second
+  afterwards.
+
 Straight punches only. A punch counts when your fist is moving fast **and**
 travelling along the line to their head — a hook that happens to pass through
 does nothing. That alignment requirement is what makes the game about aim

@@ -889,3 +889,94 @@ body {
 .lobby__status.is-ok {
   color: var(--ok);
 }
+
+
+/* ======================= combo and damage ========================= */
+
+/* Both borrowed from how Roblox fighting games read at a glance: big, bright,
+   off to the side of where you're looking, and gone before they're in the way. */
+
+.combo {
+  position: absolute;
+  top: 96px;
+  right: 28px;
+  text-align: right;
+  pointer-events: none;
+}
+
+.combo[hidden] {
+  display: none;
+}
+
+.combo__count {
+  display: block;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: #ffd48a;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  animation: combo-pop 220ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.combo__label {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+@keyframes combo-pop {
+  from {
+    transform: scale(1.5);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.pop {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  pointer-events: none;
+}
+
+.pop[hidden] {
+  display: none;
+}
+
+.pop span {
+  display: block;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff0d0;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.7);
+  animation: pop-rise 620ms ease-out forwards;
+}
+
+.pop span.is-guarded {
+  color: #9fb0e8;
+  font-size: 24px;
+}
+
+@keyframes pop-rise {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.2);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -70px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combo__count,
+  .pop span {
+    animation: none;
+  }
+}

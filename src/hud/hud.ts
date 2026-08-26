@@ -99,6 +99,10 @@ export class Hud {
     fightRound: el('fight-round'),
     fightBanner: el('fight-banner'),
     fightBannerText: el('fight-banner-text'),
+    combo: el('combo'),
+    comboCount: el('combo-count'),
+    damagePop: el('damage-pop'),
+    damagePopText: el('damage-pop-text'),
     pipVideo: el<HTMLVideoElement>('pip-video'),
   };
 
@@ -286,14 +290,19 @@ export class Hud {
   }
 
   /** Draw the scoreboard, or hide it outside a fight. */
-  syncFight(fight: Rig['fight']): void {
+  syncFight(fight: Rig['fight'], damage: Rig['lastDamage'] = null, nowMs = 0): void {
     const { nodes } = this;
     const hidden = fight === null;
     if (nodes.fightHud.hidden !== hidden) nodes.fightHud.hidden = hidden;
     if (!fight) {
       if (!nodes.fightBanner.hidden) nodes.fightBanner.hidden = true;
+      if (!nodes.combo.hidden) nodes.combo.hidden = true;
+      if (!nodes.damagePop.hidden) nodes.damagePop.hidden = true;
       return;
     }
+
+    this.syncCombo(fight.combo);
+    this.syncDamage(damage, nowMs);
 
     this.writeWidth('fightYou', nodes.fightYou, fight.you);
     this.writeWidth('fightThem', nodes.fightThem, fight.them);
@@ -362,6 +371,42 @@ export class Hud {
       nodes.setupMark.hidden = mark === null;
       if (mark !== null) nodes.setupMark.style.left = `${mark}%`;
     }
+  }
+
+  private syncCombo(count: number): void {
+    const { nodes } = this;
+    const hidden = count === 0;
+    if (nodes.combo.hidden !== hidden) nodes.combo.hidden = hidden;
+    if (hidden) return;
+
+    if (this.previous.get('combo') !== String(count)) {
+      this.previous.set('combo', String(count));
+      nodes.comboCount.textContent = String(count);
+      // Restart the pop by reflowing the node; otherwise the animation only
+      // plays the first time the element appears.
+      nodes.comboCount.style.animation = 'none';
+      void nodes.comboCount.offsetWidth;
+      nodes.comboCount.style.animation = '';
+    }
+  }
+
+  private syncDamage(damage: Rig['lastDamage'], nowMs: number): void {
+    const { nodes } = this;
+    // The pop lives as long as its animation and no longer.
+    const fresh = damage !== null && nowMs - damage.at < 620;
+    const hidden = !fresh;
+    if (nodes.damagePop.hidden !== hidden) nodes.damagePop.hidden = hidden;
+    if (!fresh || !damage) return;
+
+    const key = `${damage.at}`;
+    if (this.previous.get('damagePop') === key) return;
+    this.previous.set('damagePop', key);
+
+    nodes.damagePopText.textContent = String(damage.amount);
+    nodes.damagePopText.className = damage.guarded ? 'is-guarded' : '';
+    nodes.damagePopText.style.animation = 'none';
+    void nodes.damagePopText.offsetWidth;
+    nodes.damagePopText.style.animation = '';
   }
 
   private writeWidth(key: string, node: HTMLElement, percent: number): void {

@@ -56,7 +56,10 @@ export const DEFAULT_FIGHT: FightOptions = {
   speed: 0.42,
   windSeconds: 0.34,
   recoverSeconds: 0.42,
-  staggerSeconds: 0.5,
+  // 0.3s of hitstun is roughly where Roblox melee systems land: long enough
+  // to feel like it connected, short enough that a combo is a skill rather
+  // than a lock.
+  staggerSeconds: 0.32,
   cooldownSeconds: 1.05,
   awareness: 0.6,
   rangeBand: 0.07,

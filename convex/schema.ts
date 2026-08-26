@@ -54,4 +54,18 @@ export default defineSchema({
   })
     .index('by_host', ['hostId'])
     .index('by_guest', ['guestId']),
+
+  scores: defineTable({
+    playerId: v.string(),
+    name: v.string(),
+    wins: v.number(),
+    losses: v.number(),
+    /** Current win streak, reset by a loss. */
+    streak: v.number(),
+    bestStreak: v.number(),
+    bestCombo: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_player', ['playerId'])
+    .index('by_wins', ['wins']),
 });

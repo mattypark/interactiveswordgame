@@ -4,6 +4,8 @@ import { Fighter } from '../scene/fighter.js';
 import { DIFFICULTIES, type FightOptions } from './fight-ai.js';
 import { Match } from './match.js';
 import { MIN_PUNCH_SPEED, PunchDetector, punchDamage } from './punch.js';
+import { Combo, HitStop, Shake, comboMultiplier } from './juice.js';
+import { ImpactFx } from '../scene/impact-fx.js';
 import type { HudAction } from '../hud/hud.js';
 import type { Tracking } from './tracking.js';
 import { rig } from '../state/rig.js';
@@ -41,6 +43,12 @@ export class FightWorld {
   readonly group = new THREE.Group();
   readonly match = new Match();
 
+  /** Impact feedback: the part that makes a hit feel like one. */
+  readonly hitStop = new HitStop();
+  readonly shake = new Shake();
+  readonly combo = new Combo();
+  private readonly fx = new ImpactFx();
+
   private readonly fighter: Fighter;
   private readonly punches: PunchDetector[];
   private readonly headTarget = new THREE.Vector3();
@@ -54,7 +62,7 @@ export class FightWorld {
   ) {
     this.fighter = new Fighter(difficulty);
     this.punches = tracking.runtimes.map(() => new PunchDetector());
-    this.group.add(this.fighter.group);
+    this.group.add(this.fighter.group, this.fx.group);
     // The match stays on 'ready' until setup is out of the way — starting the
     // clock behind the calibration overlay would cost you a round you never
     // got to fight.
@@ -66,6 +74,24 @@ export class FightWorld {
     return action.type === 'spawn' || action.type === 'delete' || action.type === 'undo'
       ? true
       : false;
+  }
+
+  /** Camera orientation, so impact rings face the viewer. */
+  cameraFacing: THREE.Quaternion | null = null;
+
+  /**
+   * Advance the impact effects on **real** time, not the frozen time the rest
+   * of the fight runs on.
+   *
+   * Hit-stop hands the game a delta of zero while it's freezing, and the shake
+   * and the burst are precisely what the freeze exists to show off — running
+   * them on that same clock leaves the camera perfectly still through the one
+   * moment it should be moving.
+   */
+  updateEffects(realDtSeconds: number, nowMs: number): void {
+    this.fx.update(realDtSeconds);
+    this.shake.step(realDtSeconds);
+    this.combo.update(nowMs);
   }
 
   update(dtSeconds: number, nowMs: number): void {
@@ -128,26 +154,42 @@ export class FightWorld {
       if (!runtime.state.present) continue;
 
       const punch = this.punches[i]!.test(
-        runtime.state.anchor,
-        runtime.velocity.velocity(),
+        {
+          points: runtime.strike,
+          previous: runtime.previousStrike,
+          velocity: runtime.velocity.velocity(),
+          peakSpeed: runtime.velocity.peakSpeed,
+        },
         this.headTarget,
         radius,
         nowMs,
       );
       if (!punch) continue;
 
-      const damage = Math.round(punchDamage(punch) * (guarding ? GUARD_REDUCTION : 1));
+      // Tempo: landing one lets you chain, being blocked costs you the beat.
+      this.punches[i]!.resolve(guarding ? 'blocked' : 'landed');
+
+      const streak = this.combo.hit(nowMs);
+      const damage = Math.round(
+        punchDamage(punch) * comboMultiplier(streak) * (guarding ? GUARD_REDUCTION : 1),
+      );
       this.match.damage('them', damage);
 
       const direction = runtime.velocity.velocity();
       const speed = Math.hypot(direction.x, direction.y, direction.z) || 1;
-      this.fighter.hurt(
-        { x: direction.x / speed, z: direction.z / speed },
-        Math.min(1, punch.speed / (MIN_PUNCH_SPEED * 2)),
-      );
+      const strength = Math.min(1, punch.speed / (MIN_PUNCH_SPEED * 2.5));
+
+      this.fighter.hurt({ x: direction.x / speed, z: direction.z / speed }, strength);
+
+      // Everything that sells it: freeze, kick, ring and shards.
+      const clout = guarding ? strength * 0.4 : strength;
+      this.hitStop.hit(clout);
+      this.shake.hit(clout);
+      if (this.cameraFacing) this.fx.burst(this.headTarget, this.cameraFacing, clout);
 
       rig.hits += 1;
       rig.lastHitSpeed = punch.speed;
+      rig.lastDamage = { amount: damage, at: nowMs, guarded: guarding };
     }
   }
 
@@ -165,12 +207,15 @@ export class FightWorld {
       timeLeft: state.timeLeft,
       winner: state.winner,
       lastRoundWinner: state.lastRoundWinner,
+      combo: this.combo.visible ? this.combo.count : 0,
     };
   }
 
   dispose(): void {
     this.fighter.dispose();
+    this.fx.dispose();
     this.group.clear();
     rig.fight = null;
+    rig.lastDamage = null;
   }
 }

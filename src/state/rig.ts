@@ -22,6 +22,16 @@ export interface FightHud {
   timeLeft: number;
   winner: 'you' | 'them' | null;
   lastRoundWinner: 'you' | 'them' | null;
+  /** Current streak, or 0 when there isn't one worth showing. */
+  combo: number;
+}
+
+/** The most recent damage dealt, for the number that pops off the target. */
+export interface DamagePop {
+  amount: number;
+  /** When it landed, so the HUD can fade it out. */
+  at: number;
+  guarded: boolean;
 }
 
 export interface Rig {
@@ -72,6 +82,8 @@ export interface Rig {
 
   /** Null outside a fight. */
   fight: FightHud | null;
+  /** Null until something has been hit. */
+  lastDamage: DamagePop | null;
 
   /** Grab state, surfaced verbatim in the `hit: … target: … held: …` line. */
   hit: boolean;
@@ -109,6 +121,7 @@ export const rig: Rig = {
   lastHitSpeed: null,
 
   fight: null,
+  lastDamage: null,
 
   hit: false,
   target: null,
