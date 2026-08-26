@@ -11,6 +11,16 @@
 
     <!-- ===================== HUD overlay ===================== -->
     <div class="hud">
+      <!-- guided first-run setup: centre point, then grip range -->
+      <div class="setup-overlay" id="setup-overlay" hidden>
+        <div class="setup-overlay__card">
+          <div class="setup-overlay__step" id="setup-step">Step 1 of 2</div>
+          <p class="setup-overlay__prompt" id="setup-prompt">Show your hand to the camera</p>
+          <div class="setup-overlay__track"><div class="setup-overlay__fill" id="setup-progress"></div></div>
+          <button class="linkbtn setup-overlay__skip" id="setup-skip">skip setup</button>
+        </div>
+      </div>
+
       <!-- surfaced only when something fails (camera denied, model load) -->
       <div class="notice" id="notice" hidden></div>
 
@@ -38,7 +48,7 @@
           <span id="hits-line">hits: 0</span>
           <span id="last-hit-line">last: -</span>
         </div>
-        <div class="readout__row readout__row--wide setup">
+        <div class="readout__row readout__row--wide readout__setup">
           <span id="setup-line">M mirror &middot; D push &middot; H hands &middot; R spawn &middot; V view</span>
         </div>
       </section>

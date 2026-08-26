@@ -134,18 +134,24 @@ difference catches the exact moment your fingers open, which is when the hand
 is already slowing, and throws come out limp. Blocks fly, bounce and settle;
 the **Physics** button turns that off if you'd rather they hang where dropped.
 
-## Calibrating
+## Setting up
 
-The force bar reads your own hand's range, and reach ratios vary between
-hands, so calibrate once per session:
+**It walks you through it the first time it sees your hand.** Two steps:
 
-1. Hold your hand open in frame, press **1. Calibrate rest**.
-2. Make a fist, press **2. Calibrate max**.
+1. Hold your hand open where it feels comfortable and keep still.
+2. Make a fist and hold.
 
-It samples about twenty frames per step and takes the median, so one bad frame
-can't skew it. If the two poses come out too close together it says so rather
-than quietly keeping a mapping that won't work. Until you calibrate, a default
-range for an adult hand is used.
+That measures both things it needs: how high and how far away you actually sit,
+and how far your fingers travel between open and closed. Press **C** to run it
+again, **Esc** to skip.
+
+Every capture waits for your hand to be *still* first. Grabbing the centre on
+the first frame a hand appears catches it midway through being raised into
+frame, which is how you end up centred on the edge of your own reach.
+
+Recentring covers height and distance only, never left/right — the middle of
+the camera frame stays the middle of the box, because shifting that sideways
+makes the middle of your view read as off to one side.
 
 Squeeze past 60% to grab, relax below 40% to let go — the gap is deliberate,
 so a grip hovering near the threshold doesn't drop what you're carrying.

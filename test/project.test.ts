@@ -185,26 +185,45 @@ test('depth outside the band pins to the face of the box', () => {
   assert.ok(Math.abs(Math.abs(near.z - volume.centre.z) - halfDepth) < 1e-9);
 });
 
-test('recentring puts the saved hand position at the middle of the box', () => {
-  const midDepth = (DEFAULT_PLAY_VOLUME.nearDepth + DEFAULT_PLAY_VOLUME.farDepth) / 2;
-  // Somewhere off to one side, high, and closer than mid — a real sitting pose.
-  const origin = { x: 0.34, y: 0.62, depth: 0.38 };
+test('recentring puts the saved height and distance at the middle of the box', () => {
+  // Hand held low in frame and closer than mid — a real sitting pose.
+  const origin = { y: 0.66, depth: 0.36 };
   const volume = { ...DEFAULT_PLAY_VOLUME, origin };
 
-  const centred = toPlaySpace({ x: origin.x, y: origin.y }, origin.depth, volume);
-  assert.ok(Math.abs(centred.x - volume.centre.x) < 1e-9);
+  const centred = toPlaySpace({ x: 0.5, y: origin.y }, origin.depth, volume);
   assert.ok(Math.abs(centred.y - volume.centre.y) < 1e-9);
   assert.ok(Math.abs(centred.z - volume.centre.z) < 1e-9);
 
-  // Without recentring, that same pose is nowhere near the middle.
-  const uncentred = toPlaySpace({ x: origin.x, y: origin.y }, origin.depth, DEFAULT_PLAY_VOLUME);
-  assert.ok(Math.abs(uncentred.x - volume.centre.x) > 0.05);
+  // Without recentring, that same pose is well below and behind the middle.
+  const uncentred = toPlaySpace({ x: 0.5, y: origin.y }, origin.depth, DEFAULT_PLAY_VOLUME);
   assert.ok(Math.abs(uncentred.y - volume.centre.y) > 0.05);
+  assert.ok(Math.abs(uncentred.z - volume.centre.z) > 0.05);
+});
 
-  // And motion away from the origin still moves the same direction and amount.
-  const offset = toPlaySpace({ x: origin.x + 0.1, y: origin.y }, origin.depth, volume);
-  const plainOffset = toPlaySpace({ x: 0.6, y: 0.5 }, midDepth, DEFAULT_PLAY_VOLUME);
-  assert.ok(Math.abs((offset.x - volume.centre.x) - (plainOffset.x - volume.centre.x)) < 1e-9);
+test('recentring never shifts you sideways', () => {
+  // The bug this guards: recentring horizontally means returning to the middle
+  // of your camera view reads as being off to one side of the box.
+  const origin = { y: 0.66, depth: 0.36 };
+  const volume = { ...DEFAULT_PLAY_VOLUME, origin };
+
+  for (const x of [0, 0.25, 0.5, 0.75, 1]) {
+    const withOrigin = toPlaySpace({ x, y: 0.5 }, 0.45, volume);
+    const without = toPlaySpace({ x, y: 0.5 }, 0.45, DEFAULT_PLAY_VOLUME);
+    assert.ok(
+      Math.abs(withOrigin.x - without.x) < 1e-12,
+      `x moved from ${without.x} to ${withOrigin.x} at frame x=${x}`,
+    );
+  }
+
+  // The middle of the frame is still the middle of the box, recentred or not.
+  assert.ok(Math.abs(toPlaySpace({ x: 0.5, y: 0.5 }, 0.45, volume).x - volume.centre.x) < 1e-12);
+});
+
+test('a resting hand sits clear of the floor', () => {
+  const volume = DEFAULT_PLAY_VOLUME;
+  // Even at the very bottom of the frame, the hand should not be in the grid.
+  const lowest = toPlaySpace({ x: 0.5, y: 1 }, 0.45, volume);
+  assert.ok(lowest.y > 0.05, `bottom of the range is at y=${lowest.y}`);
 });
 
 test('hand-local landmarks re-origin on the MCP and mirror', () => {

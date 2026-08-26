@@ -20,6 +20,14 @@ export class CalibrationFlow {
   calibrated = false;
   status = 'Ready';
 
+  /** Accept a calibration measured elsewhere — the guided setup flow. */
+  apply(calibration: GripCalibration): void {
+    this.working = { ...calibration };
+    this.calibration = { ...calibration };
+    this.calibrated = isUsableCalibration(calibration);
+    this.status = this.calibrated ? 'Calibrated' : 'Rest and squeeze look alike — redo.';
+  }
+
   begin(step: CalibrationStep): void {
     this.sampler.begin(step);
     this.status = step === 'rest' ? 'Hold your hand open…' : 'Squeeze…';

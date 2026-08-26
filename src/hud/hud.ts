@@ -13,6 +13,7 @@ export type HudAction =
   | { type: 'swap-hands' }
   | { type: 'set-origin' }
   | { type: 'toggle-view' }
+  | { type: 'setup'; action: 'start' | 'skip' }
   | { type: 'calibrate'; step: 'rest' | 'max' | 'reset' };
 
 type HudHandler = (action: HudAction) => void;
@@ -66,6 +67,11 @@ export class Hud {
     dotGrip: el('dot-grip'),
     pipLabel: el('pip-label'),
     notice: el('notice'),
+    setupOverlay: el('setup-overlay'),
+    setupStep: el('setup-step'),
+    setupPrompt: el('setup-prompt'),
+    setupProgress: el('setup-progress'),
+    setupSkip: el<HTMLButtonElement>('setup-skip'),
     pipVideo: el<HTMLVideoElement>('pip-video'),
   };
 
@@ -113,6 +119,10 @@ export class Hud {
       });
     });
 
+    this.nodes.setupSkip.addEventListener('click', () => {
+      this.emit({ type: 'setup', action: 'skip' });
+    });
+
     document.querySelectorAll<HTMLButtonElement>('[data-calib]').forEach((button) => {
       button.addEventListener('click', () => {
         this.emit({
@@ -143,6 +153,10 @@ export class Hud {
         this.emit({ type: 'set-origin' });
       } else if (event.key === 'v' || event.key === 'V') {
         this.emit({ type: 'toggle-view' });
+      } else if (event.key === 'c' || event.key === 'C') {
+        this.emit({ type: 'setup', action: 'start' });
+      } else if (event.key === 'Escape') {
+        this.emit({ type: 'setup', action: 'skip' });
       }
     });
   }
@@ -213,7 +227,7 @@ export class Hud {
       nodes.setupLine,
       `M mirror ${rig.mirror ? 'on' : 'off'} · D ${rig.invertDepth ? 'push' : 'literal'} · ` +
         `H hands ${rig.swapHands ? 'swapped' : 'normal'} · ` +
-        `R ${rig.originSet ? 'spawn set' : 'set spawn'} · V ${rig.view}-person`,
+        `R ${rig.originSet ? 'spawn set' : 'set spawn'} · V ${rig.view}-person · C recalibrate`,
     );
 
     this.write('hits', nodes.hitsLine, `hits: ${rig.hits}`);
@@ -236,6 +250,23 @@ export class Hud {
 
   setCalibrationState(text: string): void {
     this.nodes.calibState.textContent = text;
+  }
+
+  /** Drive the guided setup overlay. Pass null to hide it. */
+  setSetup(state: { step: string; prompt: string; progress: number } | null): void {
+    const { nodes } = this;
+    const hidden = state === null;
+    if (nodes.setupOverlay.hidden !== hidden) nodes.setupOverlay.hidden = hidden;
+    if (!state) return;
+
+    this.write('setupStep', nodes.setupStep, state.step);
+    this.write('setupPrompt', nodes.setupPrompt, state.prompt);
+
+    const percent = Math.round(state.progress * 100);
+    if (this.previous.get('setupProgress') !== String(percent)) {
+      this.previous.set('setupProgress', String(percent));
+      nodes.setupProgress.style.width = `${percent}%`;
+    }
   }
 
   /** Show a failure the user can act on, or clear it with null. */

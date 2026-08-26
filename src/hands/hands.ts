@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
-import { Vec3Filter } from './filter.js';
+import { OneEuroFilter, Vec3Filter } from './filter.js';
 import { LANDMARK_COUNT } from './connections.js';
 import { HandSkeleton, type HandColorKey } from './skeleton.js';
 import { curlRatio } from './grip.js';
@@ -35,6 +35,9 @@ function paletteFor(handedness: string | null): HandColorKey {
   if (handedness === 'Right') return swapHandedness ? 'left' : 'right';
   return 'unknown';
 }
+
+/** Frames of raw depth kept for the median. Odd, so there's a true middle. */
+const DEPTH_WINDOW = 5;
 
 /** Landmarks spanning the palm, used to build its orientation. */
 const INDEX_MCP = 5;
@@ -88,6 +91,20 @@ class TrackedHand {
 
   readonly skeleton = new HandSkeleton();
 
+  /**
+   * Depth gets its own filter, applied before the mapping rather than after.
+   *
+   * It is by far the noisiest channel — it comes from a bone a few dozen
+   * pixels long, so a pixel of wobble is a couple of centimetres of distance —
+   * and the play volume stretches a 32cm band across 1.15m of scene, which
+   * multiplies that wobble by three and a half. Smoothing it downstream, mixed
+   * in with clean x and y, meant either the jitter came through or x and y got
+   * dragged down with it.
+   */
+  private readonly depthFilter = new OneEuroFilter({ minCutoff: 0.45, beta: 0.2 });
+  /** Last few raw depths, for throwing out spikes. */
+  private readonly depthWindow: number[] = [];
+
   private readonly anchorFilter = new Vec3Filter({ minCutoff: 1.1, beta: 2.6 });
   private readonly jointFilters = Array.from(
     { length: LANDMARK_COUNT },
@@ -104,11 +121,12 @@ class TrackedHand {
     volume: PlayVolume,
     nowMs: number,
   ): boolean {
-    const depth = solveDepth(landmarks, worldLandmarks, frame);
+    const rawDepth = solveDepth(landmarks, worldLandmarks, frame);
     const palm = landmarks[MIDDLE_MCP];
-    if (depth === null || !palm) return this.coast(nowMs);
+    if (rawDepth === null || !palm) return this.coast(nowMs);
 
     const timeSec = nowMs / 1000;
+    const depth = this.depthFilter.filter(this.despike(rawDepth), timeSec);
     const placed = toPlaySpace(palm, depth, volume);
     const smoothedAnchor = this.anchorFilter.filter(placed.x, placed.y, placed.z, timeSec);
 
@@ -168,6 +186,20 @@ class TrackedHand {
     this.state.orientation.setFromRotationMatrix(BASIS);
   }
 
+  /**
+   * Median of the last three raw depths. A frame where the model briefly
+   * mis-sizes the palm produces a single wild reading, and a low-pass filter
+   * spreads that over the following frames instead of rejecting it.
+   */
+  private despike(depth: number): number {
+    this.depthWindow.push(depth);
+    if (this.depthWindow.length > DEPTH_WINDOW) this.depthWindow.shift();
+    if (this.depthWindow.length < 3) return depth;
+
+    const sorted = [...this.depthWindow].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)]!;
+  }
+
   /** Keep showing the last good pose briefly, then give up. */
   private coast(nowMs: number): boolean {
     if (nowMs - this.lastSeen < HOLD_MS) return this.state.present;
@@ -180,6 +212,8 @@ class TrackedHand {
     this.state.grip = 0;
     this.state.curl = null;
     this.anchorFilter.reset();
+    this.depthFilter.reset();
+    this.depthWindow.length = 0;
     for (const filter of this.jointFilters) filter.reset();
   }
 
@@ -196,15 +230,7 @@ class TrackedHand {
 export class HandsRig {
   readonly group = new THREE.Group();
 
-  /**
-   * Whether the volume has been centred on wherever the user actually is.
-   *
-   * Done automatically the first time a hand is seen, because the alternative
-   * is assuming everyone sits square to the lens at exactly mid depth — and
-   * anyone sitting closer than that starts pinned to the far wall of the box.
-   * R re-centres it later.
-   */
-  private autoCentred = false;
+
   readonly hands: TrackedHand[] = Array.from({ length: MAX_HANDS }, () => new TrackedHand());
 
   volume: PlayVolume = DEFAULT_PLAY_VOLUME;
@@ -228,27 +254,19 @@ export class HandsRig {
       } else {
         const handedness = result?.handedness[i]?.[0]?.categoryName ?? null;
         hand.resolve(landmarks, worldLandmarks, handedness, frame, this.volume, nowMs);
-
-        // First hand of the session defines where the middle of the box is.
-        if (!this.autoCentred && this.volume.origin === null && hand.state.present) {
-          this.autoCentred = true;
-          this.recentre(hand.state.raw, hand.state.depth);
-        }
       }
 
       hand.draw();
     }
   }
 
-  /** Treat this hand pose as the centre of the volume. */
-  recentre(raw: { x: number; y: number }, depth: number): void {
-    this.volume = { ...this.volume, origin: { x: raw.x, y: raw.y, depth } };
-    this.autoCentred = true;
+  /** Treat this hand height and distance as the middle of the volume. */
+  recentre(raw: { y: number }, depth: number): void {
+    this.volume = { ...this.volume, origin: { y: raw.y, depth } };
   }
 
   clearOrigin(): void {
     this.volume = { ...this.volume, origin: null };
-    this.autoCentred = true;
   }
 
   dispose(): void {

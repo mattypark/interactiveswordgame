@@ -24,6 +24,7 @@
     "src/interact/history.ts",
     "src/interact/physics.ts",
     "src/interact/impact.ts",
-    "src/interact/npc-brain.ts"
+    "src/interact/npc-brain.ts",
+    "src/hud/setup.ts"
   ]
 }

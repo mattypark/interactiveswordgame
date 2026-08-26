@@ -22,6 +22,7 @@ import {
   type Transform,
 } from './interact/history.js';
 import { CalibrationFlow } from './hud/calibration.js';
+import { SetupFlow } from './hud/setup.js';
 import { Hud } from './hud/hud.js';
 import { rig } from './state/rig.js';
 
@@ -60,6 +61,15 @@ const throwStrike = new StrikeDetector(0.9);
 const npcThrowStrike = new StrikeDetector(0.9);
 
 const calibration = new CalibrationFlow();
+
+/**
+ * The guided run that measures both the centre of your reach and your grip
+ * range. Auto-starts the first time a hand appears — the two things it
+ * measures are the difference between this feeling right and feeling broken,
+ * and neither is discoverable from a pair of unlabelled buttons.
+ */
+const setup = new SetupFlow();
+let setupOffered = false;
 
 function readTransform(object: THREE.Object3D): Transform {
   return {
@@ -142,8 +152,23 @@ hud.on((action) => {
     }
 
     case 'calibrate':
-      if (action.step === 'reset') calibration.reset();
-      else calibration.begin(action.step);
+      // The old two-button flow now just starts the guided one, which measures
+      // the same thing plus the centre point.
+      if (action.step === 'reset') {
+        calibration.reset();
+        hands.clearOrigin();
+        setup.start();
+      } else {
+        setup.start();
+      }
+      break;
+
+    case 'setup':
+      if (action.action === 'start') setup.start();
+      else {
+        setup.cancel();
+        setupOffered = true;
+      }
       break;
 
     case 'mirror':
@@ -247,6 +272,53 @@ function primaryHand(states: HandState[]): HandState | null {
   );
 }
 
+const SETUP_STEP_LABEL: Record<string, string> = {
+  centre: 'Step 1 of 2 · centre',
+  squeeze: 'Step 2 of 2 · grip',
+};
+
+function updateSetup(visible: HandState | undefined, handSpeed: number): void {
+  // Offer it once, the first time there's a hand to work with.
+  if (!setupOffered && !setup.running && visible) {
+    setupOffered = true;
+    setup.start();
+  }
+
+  if (setup.running && visible) {
+    setup.update({
+      present: true,
+      raw: visible.raw,
+      depth: visible.depth,
+      curl: visible.curl,
+      speed: handSpeed,
+    });
+  } else if (setup.running) {
+    setup.update({
+      present: false,
+      raw: { x: 0.5, y: 0.5 },
+      depth: 0,
+      curl: null,
+      speed: 0,
+    });
+  }
+
+  const done = setup.take();
+  if (done) {
+    hands.recentre(done.origin, done.origin.depth);
+    calibration.apply(done.calibration);
+  }
+
+  hud.setSetup(
+    setup.running
+      ? {
+          step: SETUP_STEP_LABEL[setup.step] ?? 'Setup',
+          prompt: setup.prompt,
+          progress: setup.progress,
+        }
+      : null,
+  );
+}
+
 function updateGrabbing(): void {
   const states = hands.states;
 
@@ -254,9 +326,15 @@ function updateGrabbing(): void {
   const visible = states.find((state) => state.present);
   calibration.update(visible?.curl ?? null);
 
+  const visibleIndex = states.findIndex((state) => state.present);
+  const handSpeed = visibleIndex >= 0 ? grabbers[visibleIndex]!.velocity.speed : 0;
+  updateSetup(visible, handSpeed);
+
   let hit = false;
   let target: string | null = null;
   let held: string | null = null;
+
+  const busy = setup.running;
 
   for (let i = 0; i < states.length; i += 1) {
     const state = states[i]!;
@@ -272,7 +350,14 @@ function updateGrabbing(): void {
     const otherHeld = grabbers.find((_, index) => index !== i)?.controller.held ?? null;
     collectBoxes(otherHeld);
 
-    const { state: grab, event } = controller.update(state.present, state.anchor, state.grip, boxes);
+    // Nothing gets grabbed or hit while the setup overlay is up — you're being
+    // asked to hold a pose, not to play.
+    const { state: grab, event } = controller.update(
+      state.present && !busy,
+      state.anchor,
+      state.grip,
+      boxes,
+    );
 
     if (event?.type === 'grab') {
       const object = world.find(event.id);
@@ -321,7 +406,7 @@ function updateGrabbing(): void {
 
     // Hitting the dummy. An empty hand punches; a full one swings whatever
     // it's carrying, which is the mechanic the sword will use.
-    if (state.present) {
+    if (state.present && !busy) {
       const held = grab.held ? world.find(grab.held) : null;
       const point = held ? held.mesh.position : state.anchor;
       const margin = held ? Math.max(...held.mesh.scale.toArray()) * 0.055 : 0.03;
@@ -433,6 +518,7 @@ if (import.meta.env.DEV) {
     vision,
     rig,
     calibration,
+    setup,
     grabbers,
     history,
     bodies,

@@ -134,19 +134,26 @@ export interface PlayVolume {
    */
   invertDepth: boolean;
   /**
-   * The hand position treated as the centre of the volume — a recentre point,
-   * set by holding your hand somewhere comfortable and pressing R.
+   * A recentre point: the height and distance treated as the middle of the box.
    *
-   * Without one, the centre is the middle of the frame at mid depth, which
-   * assumes you're sitting square to the camera at exactly the right distance.
-   * Null means use that default.
+   * Deliberately **not** horizontal. Left-right in the camera frame is already
+   * well behaved — the middle of the frame is the middle of the box and the
+   * edges are the edges — so recentring it just shifts everything sideways and
+   * makes the middle of your view read as off to one side.
+   *
+   * Height and distance are the two that genuinely vary: people hold their
+   * hand low in frame, and sit anywhere from 30cm to 70cm from the lens.
+   * Null means use the frame default.
    */
-  origin: { x: number; y: number; depth: number } | null;
+  origin: { y: number; depth: number } | null;
 }
 
 export const DEFAULT_PLAY_VOLUME: PlayVolume = {
-  centre: { x: 0, y: 0.2, z: 0 },
-  size: { x: 0.72, y: 0.46, z: 1.15 },
+  // Sits the resting hand well clear of the floor. The old centre put the
+  // bottom of the vertical range at ground level, so a hand held low in frame
+  // read as lying on the grid.
+  centre: { x: 0, y: 0.32, z: 0 },
+  size: { x: 0.72, y: 0.44, z: 1.15 },
   // A wide depth band, because reaching toward and away from the camera is the
   // one axis a single webcam gives you and it should be worth using: near the
   // lens throws the block right up to the viewer, arm's length pushes it deep
@@ -192,7 +199,8 @@ export function toPlaySpace(
 
   // Recentring shifts the whole mapping so the saved hand position lands in
   // the middle of the box, rather than assuming you sit square to the camera.
-  const px = origin ? point.x - origin.x + 0.5 : point.x;
+  // Horizontal is never shifted — see PlayVolume.origin.
+  const px = point.x;
   const py = origin ? point.y - origin.y + 0.5 : point.y;
   const pz = origin ? depth - origin.depth + midDepth : depth;
 
