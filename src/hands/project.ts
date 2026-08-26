@@ -124,6 +124,24 @@ export interface PlayVolume {
    * annoying — so it is a runtime toggle (press M), not a buried constant.
    */
   mirror: boolean;
+  /**
+   * Which way the depth axis runs.
+   *
+   * false is the literal reading: hand near the lens, object near the viewer.
+   * true is the push reading: shove your hand toward the camera and the object
+   * is pushed away from you into the scene. The second is what most people
+   * reach for, so it's the default — toggled with D.
+   */
+  invertDepth: boolean;
+  /**
+   * The hand position treated as the centre of the volume — a recentre point,
+   * set by holding your hand somewhere comfortable and pressing R.
+   *
+   * Without one, the centre is the middle of the frame at mid depth, which
+   * assumes you're sitting square to the camera at exactly the right distance.
+   * Null means use that default.
+   */
+  origin: { x: number; y: number; depth: number } | null;
 }
 
 export const DEFAULT_PLAY_VOLUME: PlayVolume = {
@@ -136,6 +154,8 @@ export const DEFAULT_PLAY_VOLUME: PlayVolume = {
   nearDepth: 0.24,
   farDepth: 0.86,
   mirror: false,
+  invertDepth: true,
+  origin: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -163,16 +183,25 @@ export function toPlaySpace(
   depth: number,
   volume: PlayVolume = DEFAULT_PLAY_VOLUME,
 ): Vec3 {
-  const u = volume.mirror ? 0.5 - point.x : point.x - 0.5; // [-0.5, 0.5]
-  const v = 0.5 - point.y; // image y is down; world y is up
+  const origin = volume.origin;
+  const midDepth = (volume.nearDepth + volume.farDepth) / 2;
 
-  // Near the camera should read as near the viewer, so the depth axis inverts.
-  const w = -normalise(depth, volume.nearDepth, volume.farDepth);
+  // Recentring shifts the whole mapping so the saved hand position lands in
+  // the middle of the box, rather than assuming you sit square to the camera.
+  const px = origin ? point.x - origin.x + 0.5 : point.x;
+  const py = origin ? point.y - origin.y + 0.5 : point.y;
+  const pz = origin ? depth - origin.depth + midDepth : depth;
+
+  const u = volume.mirror ? 0.5 - px : px - 0.5; // [-0.5, 0.5]
+  const v = 0.5 - py; // image y is down; world y is up
+
+  const w = normalise(pz, volume.nearDepth, volume.farDepth);
+  const depthAxis = volume.invertDepth ? w : -w;
 
   return {
     x: volume.centre.x + clamp(u, -0.5, 0.5) * volume.size.x,
     y: volume.centre.y + clamp(v, -0.5, 0.5) * volume.size.y,
-    z: volume.centre.z + w * volume.size.z,
+    z: volume.centre.z + depthAxis * volume.size.z,
   };
 }
 

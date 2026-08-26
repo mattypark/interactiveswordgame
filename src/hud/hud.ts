@@ -9,6 +9,9 @@ export type HudAction =
   | { type: 'redo' }
   | { type: 'physics' }
   | { type: 'mirror' }
+  | { type: 'invert-depth' }
+  | { type: 'swap-hands' }
+  | { type: 'set-origin' }
   | { type: 'calibrate'; step: 'rest' | 'max' | 'reset' };
 
 type HudHandler = (action: HudAction) => void;
@@ -49,7 +52,8 @@ export class Hud {
     depthLine: el('depth-line'),
     hitsLine: el('hits-line'),
     lastHitLine: el('last-hit-line'),
-    mirrorLine: el('mirror-line'),
+    setupLine: el('setup-line'),
+    handsLegend: el('hands-legend'),
     frames: el('st-frames'),
     hands: el('st-hands'),
     video: el('st-video'),
@@ -130,6 +134,12 @@ export class Hud {
         this.emit({ type: 'delete' });
       } else if (event.key === 'm' || event.key === 'M') {
         this.emit({ type: 'mirror' });
+      } else if (event.key === 'd' || event.key === 'D') {
+        this.emit({ type: 'invert-depth' });
+      } else if (event.key === 'h' || event.key === 'H') {
+        this.emit({ type: 'swap-hands' });
+      } else if (event.key === 'r' || event.key === 'R') {
+        this.emit({ type: 'set-origin' });
       }
     });
   }
@@ -194,7 +204,13 @@ export class Hud {
       nodes.depthLine.className = rig.depthInRange ? '' : 'warn';
     }
 
-    this.write('mirror', nodes.mirrorLine, `mirror ${rig.mirror ? 'on' : 'off'} (M)`);
+    // One line for every "depends on your setup" toggle, with its key.
+    this.write(
+      'setup',
+      nodes.setupLine,
+      `M mirror ${rig.mirror ? 'on' : 'off'} · D ${rig.invertDepth ? 'push' : 'literal'} · ` +
+        `H hands ${rig.swapHands ? 'swapped' : 'normal'} · R ${rig.originSet ? 'spawn set' : 'set spawn'}`,
+    );
 
     this.write('hits', nodes.hitsLine, `hits: ${rig.hits}`);
     this.write(

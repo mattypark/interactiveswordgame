@@ -12,7 +12,7 @@ import type { Vec3 } from '../hands/project.js';
 import type { Aabb } from './grab.js';
 
 /** Below this it's a touch, not a strike. Metres per second. */
-export const MIN_STRIKE_SPEED = 1.2;
+export const MIN_STRIKE_SPEED = 0.85;
 
 /** How long after a strike the same target ignores further contact. */
 export const STRIKE_COOLDOWN_MS = 260;

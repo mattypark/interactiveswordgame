@@ -3,7 +3,7 @@ import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
 import { Vec3Filter } from './filter.js';
 import { LANDMARK_COUNT } from './connections.js';
-import { HandSkeleton } from './skeleton.js';
+import { HandSkeleton, type HandColorKey } from './skeleton.js';
 import { curlRatio } from './grip.js';
 import {
   DEFAULT_PLAY_VOLUME,
@@ -18,6 +18,23 @@ import {
 
 /** Both hands, tracked and drawn. */
 const MAX_HANDS = 2;
+
+/**
+ * The model reports handedness for the raw image. Whether that matches the
+ * hand you're actually holding up depends on the camera, so it's swappable at
+ * runtime (H) rather than assumed — same reasoning as the mirror toggle.
+ */
+export let swapHandedness = false;
+
+export function setSwapHandedness(value: boolean): void {
+  swapHandedness = value;
+}
+
+function paletteFor(handedness: string | null): HandColorKey {
+  if (handedness === 'Left') return swapHandedness ? 'right' : 'left';
+  if (handedness === 'Right') return swapHandedness ? 'left' : 'right';
+  return 'unknown';
+}
 
 /** Landmarks spanning the palm, used to build its orientation. */
 const INDEX_MCP = 5;
@@ -48,6 +65,8 @@ export interface HandState {
   orientation: THREE.Quaternion;
   /** Camera distance in metres, before it was mapped into the play volume. */
   depth: number;
+  /** Raw normalised image position of the palm, for saving a recentre point. */
+  raw: { x: number; y: number };
   /** 0 = open palm, 1 = closed fist, after calibration. */
   grip: number;
   /** Uncalibrated mean fingertip reach, in palm-lengths. Null when unmeasurable. */
@@ -62,6 +81,7 @@ class TrackedHand {
     joints: Array.from({ length: LANDMARK_COUNT }, () => new THREE.Vector3()),
     orientation: new THREE.Quaternion(),
     depth: 0,
+    raw: { x: 0.5, y: 0.5 },
     grip: 0,
     curl: null,
   };
@@ -97,6 +117,8 @@ class TrackedHand {
 
     this.state.anchor.set(smoothedAnchor.x, smoothedAnchor.y, smoothedAnchor.z);
     this.state.depth = depth;
+    this.state.raw.x = palm.x;
+    this.state.raw.y = palm.y;
     this.state.handedness = handedness;
 
     for (let i = 0; i < LANDMARK_COUNT; i += 1) {
@@ -162,8 +184,12 @@ class TrackedHand {
   }
 
   draw(): void {
-    if (this.state.present) this.skeleton.update(this.state.joints, this.state.grip);
-    else this.skeleton.hide();
+    if (!this.state.present) {
+      this.skeleton.hide();
+      return;
+    }
+    this.skeleton.setPalette(paletteFor(this.state.handedness));
+    this.skeleton.update(this.state.joints, this.state.grip);
   }
 }
 

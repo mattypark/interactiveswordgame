@@ -6,7 +6,7 @@ import { PlayVolumeView } from './scene/volume.js';
 import { Dummy } from './scene/dummy.js';
 import { ClayWorld } from './scene/clay.js';
 import { Vision } from './hands/vision.js';
-import { HandsRig, type HandState } from './hands/hands.js';
+import { HandsRig, setSwapHandedness, type HandState } from './hands/hands.js';
 import { normaliseGrip } from './hands/grip.js';
 import { VelocityTracker } from './hands/velocity.js';
 import { GrabController, type Aabb } from './interact/grab.js';
@@ -145,6 +145,26 @@ hud.on((action) => {
       hands.volume = { ...hands.volume, mirror: rig.mirror };
       break;
 
+    case 'invert-depth':
+      rig.invertDepth = !rig.invertDepth;
+      hands.volume = { ...hands.volume, invertDepth: rig.invertDepth };
+      break;
+
+    case 'swap-hands':
+      rig.swapHands = !rig.swapHands;
+      setSwapHandedness(rig.swapHands);
+      break;
+
+    case 'set-origin': {
+      // Hold your hand somewhere comfortable and press R: that pose becomes
+      // the middle of the box. Press it with no hand in frame to clear.
+      const hand = hands.states.find((state) => state.present);
+      const origin = hand ? { x: hand.raw.x, y: hand.raw.y, depth: hand.depth } : null;
+      hands.volume = { ...hands.volume, origin };
+      rig.originSet = origin !== null;
+      break;
+    }
+
     case 'physics': {
       physicsEnabled = !physicsEnabled;
       if (!physicsEnabled) bodies.clear();
@@ -279,15 +299,19 @@ function updateGrabbing(): void {
     if (state.present) grabber.velocity.push(state.anchor, performance.now());
     else grabber.velocity.reset();
 
-    // Punching the dummy — only with an empty hand, so carrying a block past
-    // it doesn't read as a strike.
-    if (state.present && !grab.held) {
+    // Hitting the dummy. An empty hand punches; a full one swings whatever
+    // it's carrying, which is the mechanic the sword will use.
+    if (state.present) {
+      const held = grab.held ? world.find(grab.held) : null;
+      const point = held ? held.mesh.position : state.anchor;
+      const margin = held ? Math.max(...held.mesh.scale.toArray()) * 0.055 : 0.03;
+
       const strike = handStrikes[i]!.test(
         dummyBox(),
-        state.anchor,
+        point,
         grabber.velocity.velocity(),
         performance.now(),
-        0.03,
+        margin,
       );
       if (strike) landHit(strike.direction, strike.speed);
     }

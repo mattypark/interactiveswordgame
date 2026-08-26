@@ -53,11 +53,31 @@ at runtime and the app works offline after first load.
 | 7 | Test dummy to hit | done |
 | 8 | Sword | |
 
-## If left and right feel backwards
+## Setup keys
 
-Press **M**. Whether the horizontal axis should be flipped depends on your
-camera and how you read the scene, so it's a live toggle rather than a buried
-constant — the readout shows `mirror on` / `mirror off`.
+Four things depend on your camera and how you read the scene, and all four are
+instantly annoying if they're the wrong way round. So they're live toggles
+rather than constants, and the HUD shows the current state of each.
+
+| Key | What it does |
+|-----|--------------|
+| **M** | Flip left/right, if moving right sends the hand left. |
+| **D** | Flip the depth axis. `push` (default) means moving your hand toward the camera pushes the object away into the scene; `literal` means toward the camera brings it toward you. |
+| **H** | Swap which hand is blue and which is red, if the labels come out backwards. |
+| **R** | Set a spawn point — see below. |
+
+### Spawn point (R)
+
+By default the middle of the box is the middle of the camera frame at mid
+depth, which assumes you're sitting square to the lens at exactly the right
+distance. You're probably not.
+
+Hold your hand wherever it's comfortable and press **R**. That pose becomes the
+centre, and everything moves relative to it — so you get the full range of the
+box without having to sit anywhere in particular. Press **R** again with no
+hand in frame to clear it.
+
+Your left hand draws blue, your right red.
 
 ## Reading depth
 

@@ -150,22 +150,61 @@ test('play space lifts vertically', () => {
   assert.ok(bottom.y < volume.centre.y);
 });
 
-test('play space brings a near hand toward the viewer, and clamps', () => {
+test('the depth axis runs the way invertDepth says', () => {
+  const pushed = { ...DEFAULT_PLAY_VOLUME, invertDepth: true };
+  const literal = { ...DEFAULT_PLAY_VOLUME, invertDepth: false };
+  const centre = { x: 0.5, y: 0.5 };
+
+  // Push reading: hand toward the lens shoves the object away into the scene.
+  const pushNear = toPlaySpace(centre, pushed.nearDepth, pushed);
+  const pushFar = toPlaySpace(centre, pushed.farDepth, pushed);
+  assert.ok(pushNear.z < pushFar.z, 'a hand near the lens should push the object away');
+
+  // Literal reading: the exact opposite.
+  const litNear = toPlaySpace(centre, literal.nearDepth, literal);
+  const litFar = toPlaySpace(centre, literal.farDepth, literal);
+  assert.ok(litNear.z > litFar.z);
+
+  // Mirror images of each other about the centre.
+  assert.ok(Math.abs(pushNear.z + litNear.z - 2 * DEFAULT_PLAY_VOLUME.centre.z) < 1e-9);
+});
+
+test('depth outside the band pins to the face of the box', () => {
   const volume = DEFAULT_PLAY_VOLUME;
+  const centre = { x: 0.5, y: 0.5 };
 
-  const near = toPlaySpace({ x: 0.5, y: 0.5 }, volume.nearDepth, volume);
-  const far = toPlaySpace({ x: 0.5, y: 0.5 }, volume.farDepth, volume);
-  assert.ok(near.z > far.z, 'a closer hand should sit nearer the viewer');
+  const near = toPlaySpace(centre, volume.nearDepth, volume);
+  const far = toPlaySpace(centre, volume.farDepth, volume);
 
-  // Outside the mapped range the hand pins to the face of the box, it does not
-  // run off to infinity.
-  const wayTooClose = toPlaySpace({ x: 0.5, y: 0.5 }, 0.01, volume);
-  const wayTooFar = toPlaySpace({ x: 0.5, y: 0.5 }, 10, volume);
+  const wayTooClose = toPlaySpace(centre, 0.01, volume);
+  const wayTooFar = toPlaySpace(centre, 10, volume);
   assert.ok(Math.abs(wayTooClose.z - near.z) < 1e-9);
   assert.ok(Math.abs(wayTooFar.z - far.z) < 1e-9);
 
   const halfDepth = volume.size.z / 2;
-  assert.ok(Math.abs(near.z - volume.centre.z - halfDepth) < 1e-9);
+  assert.ok(Math.abs(Math.abs(near.z - volume.centre.z) - halfDepth) < 1e-9);
+});
+
+test('recentring puts the saved hand position at the middle of the box', () => {
+  const midDepth = (DEFAULT_PLAY_VOLUME.nearDepth + DEFAULT_PLAY_VOLUME.farDepth) / 2;
+  // Somewhere off to one side, high, and closer than mid — a real sitting pose.
+  const origin = { x: 0.34, y: 0.62, depth: 0.38 };
+  const volume = { ...DEFAULT_PLAY_VOLUME, origin };
+
+  const centred = toPlaySpace({ x: origin.x, y: origin.y }, origin.depth, volume);
+  assert.ok(Math.abs(centred.x - volume.centre.x) < 1e-9);
+  assert.ok(Math.abs(centred.y - volume.centre.y) < 1e-9);
+  assert.ok(Math.abs(centred.z - volume.centre.z) < 1e-9);
+
+  // Without recentring, that same pose is nowhere near the middle.
+  const uncentred = toPlaySpace({ x: origin.x, y: origin.y }, origin.depth, DEFAULT_PLAY_VOLUME);
+  assert.ok(Math.abs(uncentred.x - volume.centre.x) > 0.05);
+  assert.ok(Math.abs(uncentred.y - volume.centre.y) > 0.05);
+
+  // And motion away from the origin still moves the same direction and amount.
+  const offset = toPlaySpace({ x: origin.x + 0.1, y: origin.y }, origin.depth, volume);
+  const plainOffset = toPlaySpace({ x: 0.6, y: 0.5 }, midDepth, DEFAULT_PLAY_VOLUME);
+  assert.ok(Math.abs((offset.x - volume.centre.x) - (plainOffset.x - volume.centre.x)) < 1e-9);
 });
 
 test('hand-local landmarks re-origin on the MCP and mirror', () => {

@@ -36,6 +36,12 @@ export interface Rig {
   depthInRange: boolean;
   /** Horizontal axis flip. Toggled with M. */
   mirror: boolean;
+  /** Depth reads as "push away" rather than literally. Toggled with D. */
+  invertDepth: boolean;
+  /** Left/right labels swapped. Toggled with H. */
+  swapHands: boolean;
+  /** A recentre point has been saved. Set with R. */
+  originSet: boolean;
 
   /** Strikes landed on the dummy this session. */
   hits: number;
@@ -66,6 +72,9 @@ export const rig: Rig = {
   depth: null,
   depthInRange: true,
   mirror: false,
+  invertDepth: true,
+  swapHands: false,
+  originSet: false,
 
   hits: 0,
   lastHitSpeed: null,

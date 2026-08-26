@@ -58,7 +58,7 @@ body {
 .panel--readout {
   top: 14px;
   left: 16px;
-  width: 260px;
+  width: 320px;
 }
 
 .readout__head {
@@ -308,4 +308,29 @@ body {
 
 .notice[hidden] {
   display: none;
+}
+
+/* ------------------------- hand legend --------------------------- */
+
+.swatch {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-right: 3px;
+  vertical-align: baseline;
+}
+
+.swatch--left {
+  background: #4da3ff;
+}
+
+.swatch--right {
+  background: #ff5a6a;
+  margin-left: 8px;
+}
+
+.setup {
+  color: var(--ink-dim);
+  opacity: 0.75;
 }

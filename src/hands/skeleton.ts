@@ -8,10 +8,17 @@ import { CONNECTIONS, LANDMARK_COUNT } from './connections.js';
  * on the world rather than an object in it.
  */
 
-const BONE_COLOR = 0x5eead4;
-const JOINT_COLOR = 0xdffcf5;
+/** Per-hand palettes, so you can tell which hand is which at a glance. */
+export const HAND_PALETTES = {
+  left: { bone: 0x4da3ff, joint: 0xcfe6ff },
+  right: { bone: 0xff5a6a, joint: 0xffd0d6 },
+  unknown: { bone: 0x5eead4, joint: 0xdffcf5 },
+} as const;
+
+export type HandColorKey = keyof typeof HAND_PALETTES;
+
 /** Colour the whole hand shifts toward as the grip closes. */
-const GRIP_COLOR = 0xffc46b;
+const GRIP_COLOR = 0xffe9a8;
 
 const JOINT_RADIUS = 0.0042;
 
@@ -25,8 +32,9 @@ export class HandSkeleton {
   private readonly boneMaterial: THREE.LineBasicMaterial;
   private readonly jointMaterial: THREE.MeshBasicMaterial;
 
-  private readonly base = new THREE.Color(BONE_COLOR);
-  private readonly jointBase = new THREE.Color(JOINT_COLOR);
+  private readonly base = new THREE.Color(HAND_PALETTES.unknown.bone);
+  private readonly jointBase = new THREE.Color(HAND_PALETTES.unknown.joint);
+  private palette: HandColorKey = 'unknown';
   private readonly grip = new THREE.Color(GRIP_COLOR);
   private readonly scratch = new THREE.Color();
   private readonly matrix = new THREE.Matrix4();
@@ -36,7 +44,7 @@ export class HandSkeleton {
     geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
 
     this.boneMaterial = new THREE.LineBasicMaterial({
-      color: BONE_COLOR,
+      color: HAND_PALETTES.unknown.bone,
       transparent: true,
       opacity: 0.95,
       depthTest: true,
@@ -44,7 +52,7 @@ export class HandSkeleton {
     this.bones = new THREE.LineSegments(geometry, this.boneMaterial);
     this.bones.frustumCulled = false;
 
-    this.jointMaterial = new THREE.MeshBasicMaterial({ color: JOINT_COLOR });
+    this.jointMaterial = new THREE.MeshBasicMaterial({ color: HAND_PALETTES.unknown.joint });
     this.joints = new THREE.InstancedMesh(
       new THREE.SphereGeometry(JOINT_RADIUS, 10, 8),
       this.jointMaterial,
@@ -54,6 +62,14 @@ export class HandSkeleton {
 
     this.group.add(this.bones, this.joints);
     this.group.visible = false;
+  }
+
+  /** Left blue, right red. Cheap no-op when the hand hasn't changed. */
+  setPalette(key: HandColorKey): void {
+    if (key === this.palette) return;
+    this.palette = key;
+    this.base.setHex(HAND_PALETTES[key].bone);
+    this.jointBase.setHex(HAND_PALETTES[key].joint);
   }
 
   /**
