@@ -1,0 +1,291 @@
+/* ------------------------------------------------------------------
+   HUD overlay. Laid out to match the reference build: dense mono
+   readouts pinned to the four corners over a full-bleed 3D canvas.
+   ------------------------------------------------------------------ */
+
+:root {
+  --bg: #12131c;
+  --ink: #c9cfe3;
+  --ink-dim: #6f7793;
+  --accent: #4da3ff;
+  --warn: #ff5a6a;
+  --ok: #35d07f;
+  --line: rgba(255, 255, 255, 0.11);
+  --panel: rgba(18, 19, 28, 0.55);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The HUD layer never eats pointer events; individual controls opt back in. */
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---------------------------- readout ---------------------------- */
+
+.panel--readout {
+  top: 14px;
+  left: 16px;
+  width: 260px;
+}
+
+.readout__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.mode {
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.link {
+  color: var(--ink-dim);
+}
+
+.force__track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.force__fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 90ms linear;
+}
+
+.readout__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-dim);
+}
+
+.readout__row--wide {
+  color: var(--ink-dim);
+  letter-spacing: 0.01em;
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+/* ---------------------------- toolbar ---------------------------- */
+
+.panel--toolbar {
+  top: 14px;
+  right: 16px;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.toolbar__row {
+  display: flex;
+  gap: 5px;
+}
+
+.toolbar__row--right {
+  justify-content: flex-end;
+}
+
+.btn {
+  pointer-events: auto;
+  min-width: 54px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08111f;
+  font-weight: 600;
+}
+
+.linkbtn {
+  pointer-events: auto;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ---------------------------- status ----------------------------- */
+
+.panel--status {
+  bottom: 14px;
+  left: 16px;
+  gap: 8px;
+}
+
+.status {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status li {
+  display: grid;
+  grid-template-columns: 10px 62px auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-dim);
+}
+
+.status em {
+  font-style: normal;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+}
+
+.dot.is-ok {
+  background: var(--ok);
+}
+
+.dot.is-warn {
+  background: var(--warn);
+}
+
+.status__lines {
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+
+.pip {
+  position: relative;
+  width: 168px;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0b0c14;
+}
+
+.pip video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Selfie view — mirrored so moving right moves the on-screen hand right. */
+  transform: scaleX(-1);
+}
+
+.pip__label {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  color: var(--ink-dim);
+  text-shadow: 0 1px 3px #000;
+}
+
+/* -------------------------- calibration -------------------------- */
+
+.panel--calibration {
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.panel--calibration h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+}
+
+.calibration__row {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.calibration__row--status {
+  gap: 14px;
+  color: var(--ink-dim);
+}
+
+/* ---------------------------- spawn ------------------------------ */
+
+.btn--spawn {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  min-width: 108px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>interactive sword game — hand grab</title>
+    <link rel="stylesheet" href="/src/hud/hud.css" />
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+
+    <!-- ===================== HUD overlay ===================== -->
+    <div class="hud">
+      <!-- top left: mode + force + hit readout -->
+      <section class="panel panel--readout">
+        <div class="readout__head">
+          <span class="mode" id="mode-label">SELECT</span>
+          <span class="link" id="link-label">vision linked</span>
+        </div>
+        <div class="force">
+          <div class="force__track"><div class="force__fill" id="force-fill"></div></div>
+        </div>
+        <div class="readout__row">
+          <span id="force-label">force 0%</span>
+          <span class="warn" id="calib-flag">not calibrated</span>
+        </div>
+        <div class="readout__row readout__row--wide">
+          <span id="hit-line">hit: no &middot; target: - &middot; held: -</span>
+        </div>
+      </section>
+
+      <!-- top right: tool + primitive toolbar -->
+      <section class="panel panel--toolbar">
+        <div class="toolbar__row">
+          <button class="btn is-active" data-mode="select">Select</button>
+          <button class="btn" data-mode="move" disabled>Move</button>
+          <button class="btn" data-mode="rotate" disabled>Rotate</button>
+          <button class="btn" data-mode="scale" disabled>Scale</button>
+        </div>
+        <div class="toolbar__row">
+          <button class="btn" data-mode="edit" disabled>Edit</button>
+          <button class="btn" data-mode="warp" disabled>Warp</button>
+          <button class="btn" data-action="physics" disabled>Physics</button>
+          <button class="btn" data-action="delete">Delete</button>
+        </div>
+        <div class="toolbar__row toolbar__row--right">
+          <button class="btn" data-spawn="box">+ Box</button>
+          <button class="btn" data-spawn="sphere">+ Sphere</button>
+          <button class="btn" data-spawn="cylinder">+ Cylinder</button>
+        </div>
+        <div class="toolbar__row toolbar__row--right">
+          <button class="btn" data-spawn="cone">+ Cone</button>
+          <button class="btn" data-spawn="torus">+ Torus</button>
+        </div>
+        <div class="toolbar__row toolbar__row--right">
+          <button class="btn" data-action="undo">Undo</button>
+          <button class="btn" data-action="redo">Redo</button>
+        </div>
+      </section>
+
+      <!-- bottom left: device status + webcam pip -->
+      <section class="panel panel--status">
+        <ul class="status">
+          <li><i class="dot" id="dot-camera"></i><span>camera</span><em id="st-camera">idle</em></li>
+          <li><i class="dot" id="dot-vision"></i><span>vision</span><em id="st-vision">idle</em></li>
+          <li><i class="dot" id="dot-grip"></i><span>grip</span><em id="st-grip">idle</em></li>
+        </ul>
+        <div class="status__lines">
+          <div id="st-frames">frames: 0</div>
+          <div id="st-hands">hands: 0</div>
+          <div id="st-video">video: rx 0 src 0</div>
+        </div>
+        <div class="pip">
+          <video id="pip-video" playsinline muted></video>
+          <span class="pip__label" id="pip-label">idle</span>
+        </div>
+      </section>
+
+      <!-- bottom center: calibration -->
+      <section class="panel panel--calibration">
+        <h2>CALIBRATION</h2>
+        <div class="calibration__row">
+          <button class="btn" data-calib="rest">1. Calibrate rest</button>
+          <button class="btn" data-calib="max">2. Calibrate max</button>
+        </div>
+        <div class="calibration__row calibration__row--status">
+          <span id="calib-state">Ready</span>
+          <button class="linkbtn" data-calib="reset">reset</button>
+        </div>
+        <div class="warn" id="calib-detail">Not calibrated</div>
+      </section>
+
+      <!-- bottom right: spawn -->
+      <button class="btn btn--spawn" data-spawn="clay">Spawn clay (S)</button>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
