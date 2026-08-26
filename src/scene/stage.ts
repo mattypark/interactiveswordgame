@@ -12,8 +12,8 @@ export interface Stage {
 const BACKGROUND = 0x12131c;
 
 /** Metres. The reference sits the viewer just above and behind the play volume. */
-const CAMERA_START = new THREE.Vector3(0, 0.62, 1.05);
-const CAMERA_TARGET = new THREE.Vector3(0, 0.16, 0);
+const CAMERA_START = new THREE.Vector3(0, 0.78, 1.55);
+const CAMERA_TARGET = new THREE.Vector3(0, 0.2, 0);
 
 export function createStage(canvas: HTMLCanvasElement): Stage {
   const renderer = new THREE.WebGLRenderer({

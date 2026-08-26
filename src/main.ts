@@ -2,12 +2,15 @@ import * as THREE from 'three';
 
 import { createStage } from './scene/stage.js';
 import { createGrid } from './scene/grid.js';
+import { PlayVolumeView } from './scene/volume.js';
 import { ClayWorld } from './scene/clay.js';
 import { Vision } from './hands/vision.js';
 import { HandsRig, type HandState } from './hands/hands.js';
 import { normaliseGrip } from './hands/grip.js';
+import { VelocityTracker } from './hands/velocity.js';
 import { GrabController, type Aabb } from './interact/grab.js';
 import { Hold } from './interact/hold.js';
+import { DEFAULT_PHYSICS, clampThrow, step as stepBody, type Body } from './interact/physics.js';
 import {
   History,
   cloneTransform,
@@ -33,6 +36,13 @@ world.spawn('clay', new THREE.Vector3(0, 0.045, 0));
 
 const hands = new HandsRig();
 stage.scene.add(hands.group);
+
+const volumeView = new PlayVolumeView(hands.volume);
+stage.scene.add(volumeView.group);
+
+/** Ballistic state for anything in flight. Absent means at rest. */
+const bodies = new Map<string, Body>();
+let physicsEnabled = true;
 
 const calibration = new CalibrationFlow();
 
@@ -77,6 +87,7 @@ const history = new History(historyTarget);
 const grabbers = hands.hands.map(() => ({
   controller: new GrabController(),
   hold: new Hold(),
+  velocity: new VelocityTracker(),
   /** Pose of the held object when it was picked up, for the undo stack. */
   grabbedFrom: null as { id: string; transform: Transform } | null,
 }));
@@ -120,6 +131,19 @@ hud.on((action) => {
       else calibration.begin(action.step);
       break;
 
+    case 'mirror':
+      rig.mirror = !rig.mirror;
+      hands.volume = { ...hands.volume, mirror: rig.mirror };
+      break;
+
+    case 'physics': {
+      physicsEnabled = !physicsEnabled;
+      if (!physicsEnabled) bodies.clear();
+      const button = document.querySelector<HTMLButtonElement>('[data-action="physics"]');
+      button?.classList.toggle('is-active', physicsEnabled);
+      break;
+    }
+
     case 'undo':
       history.undo();
       break;
@@ -129,7 +153,6 @@ hud.on((action) => {
       break;
 
     default:
-      // Physics lands in the next stage.
       break;
   }
 });
@@ -201,6 +224,11 @@ function updateGrabbing(): void {
       if (object) hold.apply(state.anchor, state.orientation, object.mesh, rig.mode);
     }
 
+    if (event?.type === 'grab') {
+      // Anything caught out of the air stops being ballistic.
+      bodies.delete(event.id);
+    }
+
     if (event?.type === 'release' && grabber.grabbedFrom) {
       const object = world.find(grabber.grabbedFrom.id);
       if (object) {
@@ -211,8 +239,22 @@ function updateGrabbing(): void {
           after: readTransform(object.mesh),
         });
       }
+      if (physicsEnabled && object) {
+        // Throw it with whatever the hand was doing over the last ~90ms.
+        const thrown = clampThrow(grabber.velocity.velocity());
+        bodies.set(grabber.grabbedFrom.id, {
+          position: object.mesh.position,
+          velocity: { ...thrown },
+          radius: Math.max(...object.mesh.scale.toArray()) * 0.045,
+          awake: true,
+        });
+      }
+
       grabber.grabbedFrom = null;
     }
+
+    if (state.present) grabber.velocity.push(state.anchor, performance.now());
+    else grabber.velocity.reset();
 
     hit = hit || grab.hit;
     target = target ?? grab.target;
@@ -220,6 +262,14 @@ function updateGrabbing(): void {
   }
 
   const primary = primaryHand(states);
+
+  // Depth readout, and the marker showing where the hand is on the floor.
+  rig.depth = primary?.present ? primary.depth : null;
+  rig.depthInRange =
+    rig.depth === null ||
+    (rig.depth >= hands.volume.nearDepth && rig.depth <= hands.volume.farDepth);
+  volumeView.setHand(primary?.present ? primary.anchor : null, rig.depthInRange);
+
   rig.force = primary?.grip ?? 0;
   rig.calibrated = calibration.calibrated;
   rig.hit = hit;
@@ -227,12 +277,38 @@ function updateGrabbing(): void {
   rig.held = held;
 }
 
+let lastFrameMs = performance.now();
+
+function stepPhysics(dtSeconds: number): void {
+  if (!physicsEnabled) return;
+
+  for (const [id, body] of bodies) {
+    const object = world.find(id);
+    // Deleted mid-flight, or caught by a hand.
+    if (!object || rig.held === id) {
+      bodies.delete(id);
+      continue;
+    }
+
+    stepBody(body, dtSeconds, DEFAULT_PHYSICS);
+    object.mesh.position.set(body.position.x, body.position.y, body.position.z);
+
+    if (!body.awake) bodies.delete(id);
+  }
+}
+
 function frame(): void {
+  const now = performance.now();
+  const dt = (now - lastFrameMs) / 1000;
+  lastFrameMs = now;
+
   vision.update();
   hands.update(vision.latest, vision.frameSize, performance.now());
 
+  // Bounds first, so this frame's hover test sees where things actually are.
   world.refreshBounds();
   updateGrabbing();
+  stepPhysics(dt);
 
   hud.sync(rig);
   hud.setCalibrationState(calibration.status);
@@ -257,5 +333,7 @@ if (import.meta.env.DEV) {
     calibration,
     grabbers,
     history,
+    bodies,
+    volumeView,
   };
 }

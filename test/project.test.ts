@@ -119,20 +119,35 @@ test('play space centres a centred hand at mid depth', () => {
   assert.ok(Math.abs(placed.z - volume.centre.z) < 1e-9);
 });
 
-test('play space mirrors horizontally and lifts vertically', () => {
+test('the mirror flag flips the horizontal axis, and only that', () => {
+  const midDepth = (DEFAULT_PLAY_VOLUME.nearDepth + DEFAULT_PLAY_VOLUME.farDepth) / 2;
+  const mirrored = { ...DEFAULT_PLAY_VOLUME, mirror: true };
+  const direct = { ...DEFAULT_PLAY_VOLUME, mirror: false };
+
+  const leftOfImage = { x: 0.0, y: 0.5 };
+  const a = toPlaySpace(leftOfImage, midDepth, mirrored);
+  const b = toPlaySpace(leftOfImage, midDepth, direct);
+
+  assert.ok(a.x > DEFAULT_PLAY_VOLUME.centre.x);
+  assert.ok(b.x < DEFAULT_PLAY_VOLUME.centre.x);
+  // Equal and opposite about the centre.
+  assert.ok(Math.abs(a.x - DEFAULT_PLAY_VOLUME.centre.x + (b.x - DEFAULT_PLAY_VOLUME.centre.x)) < 1e-9);
+
+  // Vertical and depth are untouched by the flag.
+  assert.equal(a.y, b.y);
+  assert.equal(a.z, b.z);
+});
+
+test('play space lifts vertically', () => {
   const volume = DEFAULT_PLAY_VOLUME;
   const midDepth = (volume.nearDepth + volume.farDepth) / 2;
-
-  // Left of the raw camera image is your right hand side, so it maps to +x.
-  const rawLeft = toPlaySpace({ x: 0.0, y: 0.5 }, midDepth, volume);
-  assert.ok(rawLeft.x > volume.centre.x);
-
-  const rawRight = toPlaySpace({ x: 1.0, y: 0.5 }, midDepth, volume);
-  assert.ok(rawRight.x < volume.centre.x);
 
   // Top of the image is up in the world.
   const top = toPlaySpace({ x: 0.5, y: 0.0 }, midDepth, volume);
   assert.ok(top.y > volume.centre.y);
+
+  const bottom = toPlaySpace({ x: 0.5, y: 1.0 }, midDepth, volume);
+  assert.ok(bottom.y < volume.centre.y);
 });
 
 test('play space brings a near hand toward the viewer, and clamps', () => {

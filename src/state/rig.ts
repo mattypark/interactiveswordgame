@@ -30,6 +30,13 @@ export interface Rig {
   force: number;
   calibrated: boolean;
 
+  /** Camera distance to the tracked hand, metres. Null when no hand. */
+  depth: number | null;
+  /** Whether that distance is inside the band the play volume maps. */
+  depthInRange: boolean;
+  /** Horizontal axis flip. Toggled with M. */
+  mirror: boolean;
+
   /** Grab state, surfaced verbatim in the `hit: … target: … held: …` line. */
   hit: boolean;
   target: string | null;
@@ -50,6 +57,10 @@ export const rig: Rig = {
 
   force: 0,
   calibrated: false,
+
+  depth: null,
+  depthInRange: true,
+  mirror: false,
 
   hit: false,
   target: null,

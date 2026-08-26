@@ -45,7 +45,36 @@ at runtime and the app works offline after first load.
 | 3 | 3D hand skeleton in world space | done |
 | 4 | Grab: grip meter, calibration, pick up and move a block | done |
 | 5 | Toolbar wiring: modes, primitives, undo/redo | |
-| 6 | Rapier physics: blocks fall, stack and get thrown | |
+| 6 | Throwing, the visible play box, depth readout, mirror toggle | done |
+| 7 | Test dummy to hit | |
+
+## If left and right feel backwards
+
+Press **M**. Whether the horizontal axis should be flipped depends on your
+camera and how you read the scene, so it's a live toggle rather than a buried
+constant — the readout shows `mirror on` / `mirror off`.
+
+## Reading depth
+
+The wireframe box is the region your hand can actually reach; the ring on the
+floor is where your hand is over it, and the line connects the two. Depth on a
+flat screen is hard to judge, and a shadow on the ground is how you judge it.
+
+The `depth: 42cm` readout is your real distance from the camera. Come closer
+than 24cm or go further than 86cm and it says `out of range` and the marker
+turns red — that's the edge where tracking gives out, so you can see it coming
+instead of having the hand just stop responding.
+
+Near the lens brings the block right up to the viewer; arm's length pushes it
+deep into the scene. Perspective does the rest, so it grows and shrinks.
+
+## Throwing
+
+Release while your hand is moving and the block goes with it. Velocity is
+measured over the last ~90ms rather than the last two frames — a two-frame
+difference catches the exact moment your fingers open, which is when the hand
+is already slowing, and throws come out limp. Blocks fly, bounce and settle;
+the **Physics** button turns that off if you'd rather they hang where dropped.
 
 ## Calibrating
 

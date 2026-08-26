@@ -116,13 +116,26 @@ export interface PlayVolume {
   /** Camera distances mapped to the near and far faces of the box, metres. */
   nearDepth: number;
   farDepth: number;
+  /**
+   * Whether to flip the horizontal axis.
+   *
+   * Which way round this belongs depends on the camera and how you read the
+   * scene, and getting it backwards is immediately obvious and immediately
+   * annoying — so it is a runtime toggle (press M), not a buried constant.
+   */
+  mirror: boolean;
 }
 
 export const DEFAULT_PLAY_VOLUME: PlayVolume = {
-  centre: { x: 0, y: 0.18, z: 0 },
-  size: { x: 0.62, y: 0.4, z: 0.42 },
-  nearDepth: 0.28,
-  farDepth: 0.62,
+  centre: { x: 0, y: 0.2, z: 0 },
+  size: { x: 0.72, y: 0.46, z: 1.15 },
+  // A wide depth band, because reaching toward and away from the camera is the
+  // one axis a single webcam gives you and it should be worth using: near the
+  // lens throws the block right up to the viewer, arm's length pushes it deep
+  // into the scene, and perspective does the rest.
+  nearDepth: 0.24,
+  farDepth: 0.86,
+  mirror: false,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -143,15 +156,14 @@ function normalise(value: number, a: number, b: number): number {
  * straight sweep of the frame onto the box keeps the whole volume reachable at
  * any distance. Depth is the one axis that uses the real metric solve.
  *
- * X is mirrored so the scene behaves like a mirror: move right, the hand on
- * screen goes right.
+ * Whether X is flipped is `volume.mirror`, toggled at runtime — see PlayVolume.
  */
 export function toPlaySpace(
   point: Landmark2D,
   depth: number,
   volume: PlayVolume = DEFAULT_PLAY_VOLUME,
 ): Vec3 {
-  const u = 0.5 - point.x; // mirrored, [-0.5, 0.5]
+  const u = volume.mirror ? 0.5 - point.x : point.x - 0.5; // [-0.5, 0.5]
   const v = 0.5 - point.y; // image y is down; world y is up
 
   // Near the camera should read as near the viewer, so the depth axis inverts.

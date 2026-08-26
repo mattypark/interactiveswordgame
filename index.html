@@ -30,6 +30,10 @@
         <div class="readout__row readout__row--wide">
           <span id="hit-line">hit: no &middot; target: - &middot; held: -</span>
         </div>
+        <div class="readout__row">
+          <span id="depth-line">depth: -</span>
+          <span id="mirror-line">mirror off (M)</span>
+        </div>
       </section>
 
       <!-- top right: tool + primitive toolbar -->
@@ -43,7 +47,7 @@
         <div class="toolbar__row">
           <button class="btn" data-mode="edit" disabled>Edit</button>
           <button class="btn" data-mode="warp" disabled>Warp</button>
-          <button class="btn" data-action="physics" disabled>Physics</button>
+          <button class="btn is-active" data-action="physics">Physics</button>
           <button class="btn" data-action="delete">Delete</button>
         </div>
         <div class="toolbar__row toolbar__row--right">

@@ -8,6 +8,7 @@ export type HudAction =
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'physics' }
+  | { type: 'mirror' }
   | { type: 'calibrate'; step: 'rest' | 'max' | 'reset' };
 
 type HudHandler = (action: HudAction) => void;
@@ -45,6 +46,8 @@ export class Hud {
     calibState: el('calib-state'),
     calibDetail: el('calib-detail'),
     hitLine: el('hit-line'),
+    depthLine: el('depth-line'),
+    mirrorLine: el('mirror-line'),
     frames: el('st-frames'),
     hands: el('st-hands'),
     video: el('st-video'),
@@ -123,6 +126,8 @@ export class Hud {
         this.emit({ type: 'spawn', kind: 'clay' });
       } else if (event.key === 'Backspace' || event.key === 'Delete') {
         this.emit({ type: 'delete' });
+      } else if (event.key === 'm' || event.key === 'M') {
+        this.emit({ type: 'mirror' });
       }
     });
   }
@@ -174,6 +179,20 @@ export class Hud {
       nodes.hitLine,
       `hit: ${rig.hit ? 'yes' : 'no'} · target: ${rig.target ?? '-'} · held: ${rig.held ?? '-'}`,
     );
+
+    // Depth in centimetres, plus which way it needs to move to come back into
+    // range — losing tracking at the edge otherwise looks like a crash.
+    const depthText =
+      rig.depth === null
+        ? 'depth: -'
+        : `depth: ${Math.round(rig.depth * 100)}cm${rig.depthInRange ? '' : ' out of range'}`;
+    this.write('depth', nodes.depthLine, depthText);
+    if (this.previous.get('depthClass') !== String(rig.depthInRange)) {
+      this.previous.set('depthClass', String(rig.depthInRange));
+      nodes.depthLine.className = rig.depthInRange ? '' : 'warn';
+    }
+
+    this.write('mirror', nodes.mirrorLine, `mirror ${rig.mirror ? 'on' : 'off'} (M)`);
 
     this.write('frames', nodes.frames, `frames: ${rig.frames}`);
     this.write('hands', nodes.hands, `hands: ${rig.hands}`);
