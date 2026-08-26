@@ -1,27 +1,40 @@
 import * as THREE from 'three';
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
-import { Vec3Filter } from './filter';
-import { LANDMARK_COUNT } from './connections';
-import { HandSkeleton } from './skeleton';
+import { Vec3Filter } from './filter.js';
+import { LANDMARK_COUNT } from './connections.js';
+import { HandSkeleton } from './skeleton.js';
+import { curlRatio } from './grip.js';
 import {
   DEFAULT_PLAY_VOLUME,
   MIDDLE_MCP,
+  WRIST as WRIST_INDEX,
   solveDepth,
   toHandLocal,
   toPlaySpace,
   type FrameSize,
   type PlayVolume,
-} from './project';
+} from './project.js';
 
 /** Both hands, tracked and drawn. */
 const MAX_HANDS = 2;
+
+/** Landmarks spanning the palm, used to build its orientation. */
+const INDEX_MCP = 5;
+const PINKY_MCP = 17;
 
 /**
  * How long a hand keeps its last pose after tracking drops it. MediaPipe loses
  * a hand for a frame or two fairly often; without this the skeleton strobes.
  */
 const HOLD_MS = 180;
+
+// Reused across frames — this runs twice per frame at 60fps.
+const UP = new THREE.Vector3();
+const ACROSS = new THREE.Vector3();
+const NORMAL = new THREE.Vector3();
+const RIGHT = new THREE.Vector3();
+const BASIS = new THREE.Matrix4();
 
 export interface HandState {
   present: boolean;
@@ -31,10 +44,14 @@ export interface HandState {
   anchor: THREE.Vector3;
   /** All 21 landmarks in world space. */
   joints: THREE.Vector3[];
+  /** Palm orientation, for carrying a grabbed object. */
+  orientation: THREE.Quaternion;
   /** Camera distance in metres, before it was mapped into the play volume. */
   depth: number;
-  /** 0 = open palm, 1 = closed fist. Filled in from grip.ts. */
+  /** 0 = open palm, 1 = closed fist, after calibration. */
   grip: number;
+  /** Uncalibrated mean fingertip reach, in palm-lengths. Null when unmeasurable. */
+  curl: number | null;
 }
 
 class TrackedHand {
@@ -43,8 +60,10 @@ class TrackedHand {
     handedness: null,
     anchor: new THREE.Vector3(),
     joints: Array.from({ length: LANDMARK_COUNT }, () => new THREE.Vector3()),
+    orientation: new THREE.Quaternion(),
     depth: 0,
     grip: 0,
+    curl: null,
   };
 
   readonly skeleton = new HandSkeleton();
@@ -90,9 +109,41 @@ class TrackedHand {
       );
     }
 
+    this.state.curl = curlRatio(worldLandmarks);
+    this.solveOrientation();
+
     this.state.present = true;
     this.lastSeen = nowMs;
     return true;
+  }
+
+  /**
+   * Build an orthonormal frame for the palm: up the fingers, across the
+   * knuckles, and the palm normal from their cross product. Held objects ride
+   * this, so twisting a wrist twists the block.
+   */
+  private solveOrientation(): void {
+    const { joints } = this.state;
+    const wrist = joints[WRIST_INDEX]!;
+    const middle = joints[MIDDLE_MCP]!;
+    const index = joints[INDEX_MCP]!;
+    const pinky = joints[PINKY_MCP]!;
+
+    UP.subVectors(middle, wrist);
+    ACROSS.subVectors(pinky, index);
+    if (UP.lengthSq() < 1e-10 || ACROSS.lengthSq() < 1e-10) return;
+    UP.normalize();
+
+    NORMAL.crossVectors(ACROSS, UP);
+    // A perfectly edge-on palm makes these parallel and the basis degenerate;
+    // keeping the previous orientation beats snapping to identity.
+    if (NORMAL.lengthSq() < 1e-10) return;
+    NORMAL.normalize();
+
+    RIGHT.crossVectors(UP, NORMAL).normalize();
+
+    BASIS.makeBasis(RIGHT, UP, NORMAL);
+    this.state.orientation.setFromRotationMatrix(BASIS);
   }
 
   /** Keep showing the last good pose briefly, then give up. */
@@ -105,6 +156,7 @@ class TrackedHand {
   drop(): void {
     this.state.present = false;
     this.state.grip = 0;
+    this.state.curl = null;
     this.anchorFilter.reset();
     for (const filter of this.jointFilters) filter.reset();
   }

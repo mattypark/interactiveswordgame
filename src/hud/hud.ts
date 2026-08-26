@@ -1,5 +1,5 @@
-import type { PrimitiveKind } from '../scene/clay';
-import type { LinkState, Rig, ToolMode } from '../state/rig';
+import type { PrimitiveKind } from '../scene/clay.js';
+import type { LinkState, Rig, ToolMode } from '../state/rig.js';
 
 export type HudAction =
   | { type: 'mode'; mode: ToolMode }

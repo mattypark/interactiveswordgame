@@ -1,8 +1,8 @@
 import type { HandLandmarker, HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
-import { startCamera, CameraError, type CameraFeed } from './camera';
-import { createHandTracker } from './tracker';
-import { rig } from '../state/rig';
+import { startCamera, CameraError, type CameraFeed } from './camera.js';
+import { createHandTracker } from './tracker.js';
+import { rig } from '../state/rig.js';
 
 /**
  * Owns the camera and the landmarker, and pumps one detection per new video

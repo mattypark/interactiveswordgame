@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { CONNECTIONS, LANDMARK_COUNT } from './connections';
+import { CONNECTIONS, LANDMARK_COUNT } from './connections.js';
 
 /**
  * One hand drawn the way the reference build draws it: thin bright bones with

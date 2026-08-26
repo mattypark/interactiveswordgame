@@ -41,8 +41,24 @@ at runtime and the app works offline after first load.
 | # | Stage | State |
 |---|-------|-------|
 | 1 | Scaffold, grid scene, orbit camera, full HUD chrome | done |
-| 2 | Webcam + MediaPipe tracking, live status readouts | |
-| 3 | 3D hand skeleton in world space | |
-| 4 | Grab: grip meter, calibration, pick up and move a block | |
+| 2 | Webcam + MediaPipe tracking, live status readouts | done |
+| 3 | 3D hand skeleton in world space | done |
+| 4 | Grab: grip meter, calibration, pick up and move a block | done |
 | 5 | Toolbar wiring: modes, primitives, undo/redo | |
 | 6 | Rapier physics: blocks fall, stack and get thrown | |
+
+## Calibrating
+
+The force bar reads your own hand's range, and reach ratios vary between
+hands, so calibrate once per session:
+
+1. Hold your hand open in frame, press **1. Calibrate rest**.
+2. Make a fist, press **2. Calibrate max**.
+
+It samples about twenty frames per step and takes the median, so one bad frame
+can't skew it. If the two poses come out too close together it says so rather
+than quietly keeping a mapping that won't work. Until you calibrate, a default
+range for an adult hand is used.
+
+Squeeze past 60% to grab, relax below 40% to let go — the gap is deliberate,
+so a grip hovering near the threshold doesn't drop what you're carrying.
