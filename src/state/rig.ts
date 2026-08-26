@@ -37,6 +37,11 @@ export interface Rig {
   /** Horizontal axis flip. Toggled with M. */
   mirror: boolean;
 
+  /** Strikes landed on the dummy this session. */
+  hits: number;
+  /** Speed of the most recent strike, metres per second. */
+  lastHitSpeed: number | null;
+
   /** Grab state, surfaced verbatim in the `hit: … target: … held: …` line. */
   hit: boolean;
   target: string | null;
@@ -61,6 +66,9 @@ export const rig: Rig = {
   depth: null,
   depthInRange: true,
   mirror: false,
+
+  hits: 0,
+  lastHitSpeed: null,
 
   hit: false,
   target: null,

@@ -46,7 +46,8 @@ at runtime and the app works offline after first load.
 | 4 | Grab: grip meter, calibration, pick up and move a block | done |
 | 5 | Toolbar wiring: modes, primitives, undo/redo | |
 | 6 | Throwing, the visible play box, depth readout, mirror toggle | done |
-| 7 | Test dummy to hit | |
+| 7 | Test dummy to hit | done |
+| 8 | Sword | |
 
 ## If left and right feel backwards
 
@@ -67,6 +68,20 @@ instead of having the hand just stop responding.
 
 Near the lens brings the block right up to the viewer; arm's length pushes it
 deep into the scene. Perspective does the rest, so it grows and shrinks.
+
+## The dummy
+
+A pell-style training dummy stands at the back of the play volume. Punch it and
+it rocks back and settles; the HUD counts hits and shows the speed of the last
+one. Thrown blocks count too.
+
+A strike needs speed — 1.2 m/s for a hand, less for a thrown block — so resting
+your hand against it does nothing. There's a 260ms cooldown per target, because
+without one a single swing registers sixty times a second. Hands carrying a
+block don't strike, so you can move things past it.
+
+The rocking is an under-damped spring rather than a critically damped one. The
+overshoot on the way back is the part that reads as "that landed".
 
 ## Throwing
 

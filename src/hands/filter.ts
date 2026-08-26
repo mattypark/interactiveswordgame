@@ -56,7 +56,14 @@ export class OneEuroFilter {
   private readonly dx = new LowPass();
   private lastTime: number | null = null;
 
-  constructor({ minCutoff = 1.4, beta = 0.012, dCutoff = 1 }: OneEuroOptions = {}) {
+  /**
+   * `beta` is the whole adaptive term, and it is scaled by measured speed —
+   * so its size depends on the units. These positions are in metres, where a
+   * fast hand moves 2-4 m/s, and a beta near zero leaves the cutoff pinned at
+   * minCutoff and the filter behaving like a plain low-pass. It has to be
+   * order-1 here for fast motion to come through.
+   */
+  constructor({ minCutoff = 1.0, beta = 1.0, dCutoff = 1 }: OneEuroOptions = {}) {
     this.minCutoff = minCutoff;
     this.beta = beta;
     this.dCutoff = dCutoff;

@@ -47,6 +47,8 @@ export class Hud {
     calibDetail: el('calib-detail'),
     hitLine: el('hit-line'),
     depthLine: el('depth-line'),
+    hitsLine: el('hits-line'),
+    lastHitLine: el('last-hit-line'),
     mirrorLine: el('mirror-line'),
     frames: el('st-frames'),
     hands: el('st-hands'),
@@ -193,6 +195,13 @@ export class Hud {
     }
 
     this.write('mirror', nodes.mirrorLine, `mirror ${rig.mirror ? 'on' : 'off'} (M)`);
+
+    this.write('hits', nodes.hitsLine, `hits: ${rig.hits}`);
+    this.write(
+      'lastHit',
+      nodes.lastHitLine,
+      rig.lastHitSpeed === null ? 'last: -' : `last: ${rig.lastHitSpeed.toFixed(1)} m/s`,
+    );
 
     this.write('frames', nodes.frames, `frames: ${rig.frames}`);
     this.write('hands', nodes.hands, `hands: ${rig.hands}`);

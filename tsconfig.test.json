@@ -22,6 +22,7 @@
     "src/hands/velocity.ts",
     "src/interact/grab.ts",
     "src/interact/history.ts",
-    "src/interact/physics.ts"
+    "src/interact/physics.ts",
+    "src/interact/impact.ts"
   ]
 }

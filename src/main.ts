@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createStage } from './scene/stage.js';
 import { createGrid } from './scene/grid.js';
 import { PlayVolumeView } from './scene/volume.js';
+import { Dummy } from './scene/dummy.js';
 import { ClayWorld } from './scene/clay.js';
 import { Vision } from './hands/vision.js';
 import { HandsRig, type HandState } from './hands/hands.js';
@@ -11,6 +12,7 @@ import { VelocityTracker } from './hands/velocity.js';
 import { GrabController, type Aabb } from './interact/grab.js';
 import { Hold } from './interact/hold.js';
 import { DEFAULT_PHYSICS, clampThrow, step as stepBody, type Body } from './interact/physics.js';
+import { StrikeDetector } from './interact/impact.js';
 import {
   History,
   cloneTransform,
@@ -43,6 +45,13 @@ stage.scene.add(volumeView.group);
 /** Ballistic state for anything in flight. Absent means at rest. */
 const bodies = new Map<string, Body>();
 let physicsEnabled = true;
+
+const dummy = new Dummy(new THREE.Vector3(0, 0, -0.46));
+stage.scene.add(dummy.group);
+
+/** One detector per hand, plus one shared by everything thrown at it. */
+const handStrikes = hands.hands.map(() => new StrikeDetector());
+const throwStrike = new StrikeDetector(0.9);
 
 const calibration = new CalibrationFlow();
 
@@ -163,6 +172,20 @@ void vision.start(hud.pipVideo);
 /** Rebuilt each frame — objects move, and grabbing changes what's available. */
 const boxes: Aabb[] = [];
 
+function dummyBox(): Aabb {
+  return {
+    id: 'dummy',
+    min: { x: dummy.bounds.min.x, y: dummy.bounds.min.y, z: dummy.bounds.min.z },
+    max: { x: dummy.bounds.max.x, y: dummy.bounds.max.y, z: dummy.bounds.max.z },
+  };
+}
+
+function landHit(direction: { x: number; z: number }, speed: number): void {
+  dummy.strike(direction, speed);
+  rig.hits += 1;
+  rig.lastHitSpeed = speed;
+}
+
 function collectBoxes(excludeId: string | null): void {
   boxes.length = 0;
   for (const object of world.objects) {
@@ -256,6 +279,19 @@ function updateGrabbing(): void {
     if (state.present) grabber.velocity.push(state.anchor, performance.now());
     else grabber.velocity.reset();
 
+    // Punching the dummy — only with an empty hand, so carrying a block past
+    // it doesn't read as a strike.
+    if (state.present && !grab.held) {
+      const strike = handStrikes[i]!.test(
+        dummyBox(),
+        state.anchor,
+        grabber.velocity.velocity(),
+        performance.now(),
+        0.03,
+      );
+      if (strike) landHit(strike.direction, strike.speed);
+    }
+
     hit = hit || grab.hit;
     target = target ?? grab.target;
     held = held ?? grab.held;
@@ -293,6 +329,20 @@ function stepPhysics(dtSeconds: number): void {
     stepBody(body, dtSeconds, DEFAULT_PHYSICS);
     object.mesh.position.set(body.position.x, body.position.y, body.position.z);
 
+    const strike = throwStrike.test(
+      dummyBox(),
+      body.position,
+      body.velocity,
+      performance.now(),
+      object.mesh.scale.x * 0.045,
+    );
+    if (strike) {
+      landHit(strike.direction, strike.speed);
+      // Bounce it off rather than letting it sail through the torso.
+      body.velocity.x = -body.velocity.x * 0.45;
+      body.velocity.z = -body.velocity.z * 0.45;
+    }
+
     if (!body.awake) bodies.delete(id);
   }
 }
@@ -309,6 +359,7 @@ function frame(): void {
   world.refreshBounds();
   updateGrabbing();
   stepPhysics(dt);
+  dummy.update(dt);
 
   hud.sync(rig);
   hud.setCalibrationState(calibration.status);
@@ -335,5 +386,6 @@ if (import.meta.env.DEV) {
     history,
     bodies,
     volumeView,
+    dummy,
   };
 }

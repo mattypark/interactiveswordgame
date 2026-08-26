@@ -68,10 +68,10 @@ class TrackedHand {
 
   readonly skeleton = new HandSkeleton();
 
-  private readonly anchorFilter = new Vec3Filter({ minCutoff: 1.2, beta: 0.02 });
+  private readonly anchorFilter = new Vec3Filter({ minCutoff: 1.1, beta: 2.6 });
   private readonly jointFilters = Array.from(
     { length: LANDMARK_COUNT },
-    () => new Vec3Filter({ minCutoff: 2.4, beta: 0.008 }),
+    () => new Vec3Filter({ minCutoff: 2.2, beta: 1.4 }),
   );
   private lastSeen = -Infinity;
 
