@@ -11,6 +11,9 @@
 
     <!-- ===================== HUD overlay ===================== -->
     <div class="hud">
+      <!-- surfaced only when something fails (camera denied, model load) -->
+      <div class="notice" id="notice" hidden></div>
+
       <!-- top left: mode + force + hit readout -->
       <section class="panel panel--readout">
         <div class="readout__head">

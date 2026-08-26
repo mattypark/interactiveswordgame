@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createStage } from './scene/stage';
 import { createGrid } from './scene/grid';
 import { ClayWorld } from './scene/clay';
+import { Vision } from './hands/vision';
 import { Hud } from './hud/hud';
 import { rig } from './state/rig';
 
@@ -45,10 +46,17 @@ hud.on((action) => {
   }
 });
 
+const vision = new Vision();
+void vision.start(hud.pipVideo);
+
 function frame(): void {
+  vision.update();
+
   world.refreshBounds();
   hud.sync(rig);
+  hud.setNotice(vision.error);
   stage.render();
+
   requestAnimationFrame(frame);
 }
 

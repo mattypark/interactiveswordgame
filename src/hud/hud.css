@@ -289,3 +289,23 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------- notice ----------------------------- */
+
+.notice {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 520px;
+  padding: 7px 12px;
+  color: #ffd9dd;
+  background: rgba(120, 22, 34, 0.86);
+  border: 1px solid rgba(255, 90, 106, 0.55);
+  border-radius: 5px;
+  line-height: 1.45;
+}
+
+.notice[hidden] {
+  display: none;
+}

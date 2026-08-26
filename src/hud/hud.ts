@@ -55,6 +55,7 @@ export class Hud {
     dotVision: el('dot-vision'),
     dotGrip: el('dot-grip'),
     pipLabel: el('pip-label'),
+    notice: el('notice'),
     pipVideo: el<HTMLVideoElement>('pip-video'),
   };
 
@@ -187,5 +188,13 @@ export class Hud {
 
   setCalibrationState(text: string): void {
     this.nodes.calibState.textContent = text;
+  }
+
+  /** Show a failure the user can act on, or clear it with null. */
+  setNotice(text: string | null): void {
+    if (this.previous.get('notice') === (text ?? '')) return;
+    this.previous.set('notice', text ?? '');
+    this.nodes.notice.textContent = text ?? '';
+    this.nodes.notice.hidden = text === null;
   }
 }
