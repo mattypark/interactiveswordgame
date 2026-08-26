@@ -13,6 +13,10 @@ hardware:
 - **Grip from vision** — finger curl drives the force bar, calibrated to *your* hand's open and
   closed range. Labelled `grip` / `vision linked`, not `EMG`, because there is no armband.
 
+New to this kind of thing? **[docs/CONCEPTS.md](docs/CONCEPTS.md)** is a
+glossary of the vocabulary — landmarks, pinhole depth, One Euro, hysteresis,
+cooldowns — each tied to where it lives in this codebase.
+
 ## Running it
 
 ```bash
