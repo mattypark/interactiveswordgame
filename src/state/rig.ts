@@ -17,11 +17,17 @@ export interface Rig {
   camera: LinkState;
   vision: LinkState;
   grip: LinkState;
+  /** Face detection, which is optional — you can punch without it. */
+  face: LinkState;
 
   /** Video frames handed to the landmarker since boot. */
   frames: number;
   /** Hands found in the most recent frame. */
   hands: number;
+  /** Faces found in the most recent frame. */
+  faces: number;
+  /** Camera distance to your head, metres. Null when not detected. */
+  headDepth: number | null;
   /** Frames actually returning landmarks, and how many camera sources are live. */
   rx: number;
   sources: number;
@@ -62,9 +68,12 @@ export const rig: Rig = {
   camera: 'idle',
   vision: 'idle',
   grip: 'idle',
+  face: 'idle',
 
   frames: 0,
   hands: 0,
+  faces: 0,
+  headDepth: null,
   rx: 0,
   sources: 0,
 

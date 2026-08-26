@@ -62,9 +62,11 @@ export class Hud {
     camera: el('st-camera'),
     vision: el('st-vision'),
     grip: el('st-grip'),
+    face: el('st-face'),
     dotCamera: el('dot-camera'),
     dotVision: el('dot-vision'),
     dotGrip: el('dot-grip'),
+    dotFace: el('dot-face'),
     pipLabel: el('pip-label'),
     notice: el('notice'),
     setupOverlay: el('setup-overlay'),
@@ -211,10 +213,11 @@ export class Hud {
 
     // Depth in centimetres, plus which way it needs to move to come back into
     // range — losing tracking at the edge otherwise looks like a crash.
+    const head = rig.headDepth === null ? '' : ` · head ${Math.round(rig.headDepth * 100)}cm`;
     const depthText =
       rig.depth === null
-        ? 'depth: -'
-        : `depth: ${Math.round(rig.depth * 100)}cm${rig.depthInRange ? '' : ' out of range'}`;
+        ? `depth: -${head}`
+        : `depth: ${Math.round(rig.depth * 100)}cm${rig.depthInRange ? '' : ' out'}${head}`;
     this.write('depth', nodes.depthLine, depthText);
     if (this.previous.get('depthClass') !== String(rig.depthInRange)) {
       this.previous.set('depthClass', String(rig.depthInRange));
@@ -238,12 +241,13 @@ export class Hud {
     );
 
     this.write('frames', nodes.frames, `frames: ${rig.frames}`);
-    this.write('hands', nodes.hands, `hands: ${rig.hands}`);
+    this.write('hands', nodes.hands, `hands: ${rig.hands} · faces: ${rig.faces}`);
     this.write('video', nodes.video, `video: rx ${rig.rx} src ${rig.sources}`);
 
     this.writeDot('dotCamera', nodes.dotCamera, nodes.camera, rig.camera);
     this.writeDot('dotVision', nodes.dotVision, nodes.vision, rig.vision);
     this.writeDot('dotGrip', nodes.dotGrip, nodes.grip, rig.grip);
+    this.writeDot('dotFace', nodes.dotFace, nodes.face, rig.face);
 
     this.write('pip', nodes.pipLabel, DOT_TEXT[rig.camera]);
   }
