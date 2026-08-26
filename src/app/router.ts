@@ -27,6 +27,7 @@ function el<T extends HTMLElement>(id: string): T {
 export class Router {
   private readonly welcome = el('screen-welcome');
   private readonly maps = el('screen-maps');
+  private readonly lobby = el('screen-lobby');
   private readonly mapsList = el('maps-list');
   private readonly mapsHeading = el('maps-heading');
 
@@ -48,6 +49,7 @@ export class Router {
       button.addEventListener('click', () => {
         const target = button.dataset.go as ScreenId | 'lobby';
         if (target === 'lobby') {
+          this.show('lobby');
           this.events.lobby();
           return;
         }
@@ -62,7 +64,7 @@ export class Router {
     // Escape backs out of the picker, and out of a match to the menu.
     window.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
-      if (this.current === 'maps') this.show('welcome');
+      if (this.current === 'maps' || this.current === 'lobby') this.show('welcome');
     });
   }
 
@@ -106,6 +108,7 @@ export class Router {
     this.current = id;
     this.welcome.hidden = id !== 'welcome';
     this.maps.hidden = id !== 'maps';
+    this.lobby.hidden = id !== 'lobby';
     this.events.screen(id);
   }
 }

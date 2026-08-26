@@ -35,6 +35,18 @@ npm run build    # typecheck + production bundle
 npm test         # unit tests over the projection / grip / grab math (no camera needed)
 ```
 
+## Live versus
+
+Pick a name and an arena, press **Find a match**, and the fight starts the
+moment someone else queues for the same arena. Two people, two cameras.
+
+It needs a Convex deployment — Vercel can't hold a WebSocket open, and
+matchmaking needs one. Fight and Sandbox work with no backend at all, and the
+Versus screen says so plainly rather than failing when it isn't set up.
+
+**[docs/DEPLOY.md](docs/DEPLOY.md)** has the whole thing: `npx convex dev`
+once, `npx vercel --prod` to ship, and how to test a real match.
+
 ## Stack
 
 Vanilla TypeScript, Vite, Three.js, MediaPipe Tasks-Vision. No framework — this is one canvas
@@ -60,7 +72,7 @@ at runtime and the app works offline after first load.
 | 11 | Welcome screen, map select, mode shell | done |
 | 12 | Head tracking — your head is a target | |
 | 13 | A fighter that moves and hits back | done |
-| 14 | Live versus over Convex | |
+| 14 | Live versus over Convex | done |
 
 ## Setup keys
 

@@ -21,7 +21,7 @@ const html = readFileSync(resolve(root, 'index.html'), 'utf8');
  * Every module that reaches into the markup by id. Add to this list when a new
  * one appears, or the "unused id" check below will fail and tell you to.
  */
-const CONSUMERS = ['src/hud/hud.ts', 'src/app/router.ts'] as const;
+const CONSUMERS = ['src/hud/hud.ts', 'src/app/router.ts', 'src/app/lobby.ts'] as const;
 
 const consumerSource = CONSUMERS.map((path) => readFileSync(resolve(root, path), 'utf8')).join(
   '\n',

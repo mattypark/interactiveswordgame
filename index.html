@@ -44,6 +44,30 @@
       </div>
     </section>
 
+    <!-- ===================== live versus lobby ===================== -->
+    <section class="screen" id="screen-lobby" hidden>
+      <div class="screen__body">
+        <p class="screen__eyebrow">live versus</p>
+        <h2 class="screen__heading">Find someone</h2>
+
+        <div class="lobby" id="lobby-panel">
+          <label class="lobby__field">
+            <span>Your name</span>
+            <input id="lobby-name" type="text" maxlength="18" placeholder="anon" />
+          </label>
+          <label class="lobby__field">
+            <span>Arena</span>
+            <select id="lobby-map"></select>
+          </label>
+          <button class="btn btn--primary" id="lobby-queue">Find a match</button>
+        </div>
+
+        <p class="lobby__status" id="lobby-status">Both of you need a camera and a bit of room.</p>
+
+        <button class="linkbtn screen__back" data-go="welcome">&larr; back</button>
+      </div>
+    </section>
+
     <!-- ===================== map select ===================== -->
     <section class="screen" id="screen-maps" hidden>
       <div class="screen__body screen__body--wide">

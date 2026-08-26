@@ -731,3 +731,68 @@ body {
   color: #f2f5ff;
   text-shadow: 0 6px 40px rgba(0, 0, 0, 0.7);
 }
+
+/* ----------------------------- lobby ------------------------------ */
+
+.lobby {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.lobby__field {
+  display: grid;
+  gap: 6px;
+}
+
+.lobby__field span {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.lobby__field input,
+.lobby__field select {
+  pointer-events: auto;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.lobby__field input:focus,
+.lobby__field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.btn--primary {
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #08111f;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.lobby__status {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.lobby__status.is-warn {
+  color: var(--warn);
+}
+
+.lobby__status.is-ok {
+  color: var(--ok);
+}

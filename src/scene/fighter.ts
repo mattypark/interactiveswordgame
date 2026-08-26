@@ -101,6 +101,41 @@ export class Fighter {
     this.hurtFlash = Math.min(1, 0.55 + strength * 0.4);
   }
 
+  /**
+   * Drive the body straight from network state instead of the local AI.
+   *
+   * Position comes from where the other player's head actually is, so what you
+   * aim at is what they're moving; the arm reads off how far their fist is in
+   * front of their head, which is the one thing you need to see coming.
+   */
+  updateRemote(
+    dtSeconds: number,
+    pose: {
+      head: { x: number; y: number; z: number };
+      fist: { x: number; y: number; z: number };
+      hurt: boolean;
+    },
+  ): void {
+    this.group.position.set(pose.head.x, 0, pose.head.z);
+
+    // Face the player, who is always on the near side of the volume.
+    const desired = Math.atan2(-pose.head.x, 1);
+    this.body.rotation.y += (desired - this.body.rotation.y) * Math.min(1, dtSeconds * 8);
+
+    const reach = pose.fist.z - pose.head.z;
+    // Their fist coming toward you is negative z; map that onto the extension.
+    this.ai.strikeProgress = Math.max(0, Math.min(1, -reach / ARM_REACH));
+    this.ai.windProgress = 0;
+
+    if (pose.hurt) this.hurtFlash = 1;
+    this.body.rotation.x = this.ai.strikeProgress * 0.1;
+
+    this.poseArms(false);
+    this.poseLegs(dtSeconds);
+    this.tint(false, dtSeconds);
+    this.headBounds.setFromObject(this.head);
+  }
+
   update(dtSeconds: number, input: FightInput): { punched: boolean; guarding: boolean } {
     const result = this.ai.update(dtSeconds, input);
 

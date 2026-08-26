@@ -7,6 +7,8 @@ import { findMap, type MapDefinition } from './maps/registry.js';
 import { Tracking } from './game/tracking.js';
 import { SandboxWorld } from './game/sandbox.js';
 import { FightWorld } from './game/fight.js';
+import { VersusWorld } from './game/versus.js';
+import { Lobby } from './app/lobby.js';
 import { Hud } from './hud/hud.js';
 import { rig } from './state/rig.js';
 
@@ -24,8 +26,11 @@ tracking.addTo(stage.scene);
 
 /** Scenery and grid for the loaded map — replaced wholesale on a map change. */
 let mapScenery: THREE.Object3D | null = null;
-let world: SandboxWorld | FightWorld | null = null;
+let world: SandboxWorld | FightWorld | VersusWorld | null = null;
 let currentMap: MapDefinition | null = null;
+
+/** Set when a live match is running, so loadMap builds the versus world. */
+let liveMatch = false;
 
 function loadMap(map: MapDefinition): void {
   if (mapScenery) {
@@ -45,7 +50,12 @@ function loadMap(map: MapDefinition): void {
   stage.scene.add(scenery);
   mapScenery = scenery;
 
-  world = map.mode === 'sandbox' ? new SandboxWorld(tracking) : new FightWorld(tracking);
+  world =
+    map.mode === 'sandbox'
+      ? new SandboxWorld(tracking)
+      : liveMatch
+        ? new VersusWorld(tracking, lobby.client)
+        : new FightWorld(tracking);
   stage.scene.add(world.group);
 
   // The editor toolbar only means anything in the sandbox.
@@ -54,14 +64,22 @@ function loadMap(map: MapDefinition): void {
   tracking.setVisible(true);
 }
 
+const lobby = new Lobby((match) => {
+  liveMatch = true;
+  router.show('playing');
+  loadMap(findMap(match.mapId));
+});
+
 const router = new Router({
-  play: loadMap,
+  play(map) {
+    liveMatch = false;
+    loadMap(map);
+  },
   lobby() {
-    // Stage 12 — matchmaking. Until then, say so rather than silently failing.
-    hud.setNotice('Live versus is not wired up yet — it lands in the next stage.');
-    router.show('welcome');
+    // The lobby screen is already up; nothing else to do until someone pairs.
   },
   screen(id) {
+    if (id !== 'lobby' && id !== 'playing') lobby.cancel();
     const playing = id === 'playing';
     hud.setVisible(playing);
     tracking.setVisible(playing);
