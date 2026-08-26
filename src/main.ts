@@ -4,6 +4,7 @@ import { createStage } from './scene/stage';
 import { createGrid } from './scene/grid';
 import { ClayWorld } from './scene/clay';
 import { Vision } from './hands/vision';
+import { HandsRig } from './hands/hands';
 import { Hud } from './hud/hud';
 import { rig } from './state/rig';
 
@@ -46,11 +47,15 @@ hud.on((action) => {
   }
 });
 
+const hands = new HandsRig();
+stage.scene.add(hands.group);
+
 const vision = new Vision();
 void vision.start(hud.pipVideo);
 
 function frame(): void {
   vision.update();
+  hands.update(vision.latest, vision.frameSize, performance.now());
 
   world.refreshBounds();
   hud.sync(rig);
@@ -58,6 +63,13 @@ function frame(): void {
   stage.render();
 
   requestAnimationFrame(frame);
+
+// Dev-only handle so the pipeline can be driven with synthetic landmarks from
+// the devtools protocol — the only way to exercise hand rendering and grabbing
+// without a real hand in front of a real camera. Stripped from production.
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__isg = { stage, world, hands, vision, rig };
+}
 }
 
 requestAnimationFrame(frame);
