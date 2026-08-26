@@ -196,6 +196,17 @@ The bar goes amber when you're wobbling, eases back rather than snapping to
 zero, and after seven seconds it just takes what it has — being roughly
 calibrated beats being stuck. **Capture now** commits immediately.
 
+It also shows the live reach reading under the bar. Open should read high,
+around 1.8; a fist should read near 1.0. If it isn't moving between the two,
+that's the thing to look at.
+
+It refuses to store a hand that wasn't actually open, because that's the one
+mistake there's no way back from: a low "open" reading makes the squeeze step
+impossible to pass, and the old version would ask for a tighter fist forever.
+Two failed squeezes send you back to redo the open pose. With both hands up it
+reads whichever one is actually posed, rather than whichever the model listed
+first.
+
 Recentring covers height and distance only, never left/right — the middle of
 the camera frame stays the middle of the box, because shifting that sideways
 makes the middle of your view read as off to one side.

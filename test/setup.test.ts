@@ -17,7 +17,7 @@ function frame(now: number, overrides: Partial<SetupFrame> = {}): SetupFrame {
     present: true,
     raw: { x: 0.42, y: 0.58 },
     depth: 0.37,
-    curl: 1.85,
+    curls: [1.85],
     position: { x: 0, y: 0.32, z: 0 },
     now,
     ...overrides,
@@ -51,7 +51,7 @@ test('a steady hand completes both steps', () => {
   let t = feed(flow, HOLD_MS + 200, 0);
   assert.equal(flow.step, 'squeeze', 'never got past the centre step');
 
-  feed(flow, HOLD_MS + 200, t, () => ({ curl: 1.05 }));
+  feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.05] }));
   assert.equal(flow.step, 'done');
 
   const result = flow.take();
@@ -145,11 +145,11 @@ test('one unmeasurable frame does not skew the capture', () => {
   let t = 0;
   let i = 0;
   while (flow.step === 'centre') {
-    flow.update(frame(t, { curl: i === 3 ? 42 : 1.88 }));
+    flow.update(frame(t, { curls: [i === 3 ? 42 : 1.88] }));
     t += STEP_MS;
     i += 1;
   }
-  feed(flow, HOLD_MS + 200, t, () => ({ curl: 1.03 }));
+  feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.03] }));
 
   const result = flow.take();
   assert.ok(result);
@@ -166,14 +166,92 @@ test('a fist that reads like an open hand is rejected, and can be retried', () =
   let t = feed(flow, HOLD_MS + 200, 0);
   assert.equal(flow.step, 'squeeze');
 
-  t = feed(flow, HOLD_MS + 200, t, () => ({ curl: 1.78 }));
+  t = feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.78] }));
   assert.equal(flow.step, 'squeeze', 'accepted a useless calibration');
   assert.equal(flow.result, null);
   assert.match(flow.prompt, /squeeze tighter/i);
 
-  feed(flow, HOLD_MS + 200, t, () => ({ curl: 1.02 }));
+  feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.02] }));
   assert.equal(flow.step, 'done');
   assert.ok(flow.take());
+});
+
+test('a hand that was not really open is refused at capture, not later', () => {
+  // The trap this exists for: storing a half-closed hand as "open" makes the
+  // squeeze step impossible to pass, with no way back to fix it.
+  const flow = new SetupFlow();
+  flow.start(0);
+
+  feed(flow, HOLD_MS + 300, 0, () => ({ curls: [1.15] }));
+  assert.equal(flow.step, 'centre', 'stored a closed hand as the open reading');
+  assert.match(flow.prompt, /open your hand wider/i);
+  assert.equal(flow.capturedOpen, null);
+});
+
+test('a hand that always reads narrow is eventually accepted anyway', () => {
+  // Otherwise the floor just moves the dead end from the squeeze step to here.
+  const flow = new SetupFlow();
+  flow.start(0);
+
+  // Step frame by frame and stop the instant it moves on, so the narrow
+  // reading isn't also fed into the squeeze step.
+  let t = 0;
+  for (let i = 0; i < 2000 && flow.step === 'centre'; i += 1) {
+    flow.update(frame(t, { curls: [1.2] }));
+    t += STEP_MS;
+  }
+
+  assert.equal(flow.step, 'squeeze', 'refused a narrow hand forever');
+  assert.ok(flow.capturedOpen !== null);
+  assert.match(flow.prompt, /fist/i);
+});
+
+test('repeated squeeze failures send you back to redo the open pose', () => {
+  const flow = new SetupFlow();
+  flow.start(0);
+
+  // Barely-open hand that still clears the floor, so "open" is stored low.
+  let t = feed(flow, HOLD_MS + 200, 0, () => ({ curls: [1.4] }));
+  assert.equal(flow.step, 'squeeze');
+
+  // Two fists that can't be far enough below it.
+  t = feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.25] }));
+  assert.equal(flow.step, 'squeeze');
+  t = feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.25] }));
+
+  assert.equal(flow.step, 'centre', 'stayed stuck asking for a tighter fist forever');
+  assert.match(flow.prompt, /try again/i);
+  assert.equal(flow.capturedOpen, null);
+});
+
+test('with both hands up it reads whichever one is actually posed', () => {
+  const flow = new SetupFlow();
+  flow.start(0);
+
+  // One hand open, the other resting closed: "open" should take the open one.
+  let t = feed(flow, HOLD_MS + 200, 0, () => ({ curls: [1.05, 1.9] }));
+  assert.equal(flow.step, 'squeeze', 'the closed hand blocked the open capture');
+
+  // Then one fist and one still open: "squeeze" should take the fist.
+  feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.9, 1.02] }));
+  assert.equal(flow.step, 'done');
+
+  const result = flow.take();
+  assert.ok(result);
+  assert.ok(Math.abs(result.calibration.openRatio - 1.9) < 1e-9);
+  assert.ok(Math.abs(result.calibration.fistRatio - 1.02) < 1e-9);
+});
+
+test('the live reading follows the step being asked for', () => {
+  const flow = new SetupFlow();
+  flow.start(0);
+
+  flow.update(frame(0, { curls: [1.05, 1.9] }));
+  assert.equal(flow.liveCurl, 1.9, 'open step should show the most open hand');
+
+  const t = feed(flow, HOLD_MS + 200, 0, () => ({ curls: [1.05, 1.9] }));
+  flow.update(frame(t, { curls: [1.9, 1.02] }));
+  assert.equal(flow.liveCurl, 1.02, 'squeeze step should show the most closed hand');
 });
 
 test('capture now commits early once there is something to commit', () => {
@@ -209,6 +287,6 @@ test('the prompt always says what to do next', () => {
   const t = feed(flow, HOLD_MS + 200, 0);
   assert.match(flow.prompt, /fist/i);
 
-  feed(flow, HOLD_MS + 200, t, () => ({ curl: 1.02 }));
+  feed(flow, HOLD_MS + 200, t, () => ({ curls: [1.02] }));
   assert.match(flow.prompt, /set/i);
 });

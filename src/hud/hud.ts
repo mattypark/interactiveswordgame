@@ -78,6 +78,7 @@ export class Hud {
     setupProgress: el('setup-progress'),
     setupSkip: el<HTMLButtonElement>('setup-skip'),
     setupCapture: el<HTMLButtonElement>('setup-capture'),
+    setupReading: el('setup-reading'),
     fightHud: el('fight-hud'),
     fightYou: el('fight-you'),
     fightThem: el('fight-them'),
@@ -355,7 +356,14 @@ export class Hud {
 
   /** Drive the guided setup overlay. Pass null to hide it. */
   setSetup(
-    state: { step: string; prompt: string; progress: number; steadiness: number } | null,
+    state: {
+      step: string;
+      prompt: string;
+      progress: number;
+      steadiness: number;
+      reading: number | null;
+      captured: number | null;
+    } | null,
   ): void {
     const { nodes } = this;
     const hidden = state === null;
@@ -370,6 +378,16 @@ export class Hud {
       this.previous.set('setupProgress', String(percent));
       nodes.setupProgress.style.width = `${percent}%`;
     }
+
+    // Showing the raw reach reading turns "why won't it take my fist" into
+    // something you can see: open should read high, a fist low.
+    const reading =
+      state.reading === null
+        ? 'no hand in frame'
+        : `reach ${state.reading.toFixed(2)}${
+            state.captured === null ? '' : ` · open was ${state.captured.toFixed(2)}`
+          }`;
+    this.write('setupReading', nodes.setupReading, reading);
 
     const unsteady = state.steadiness < 0.45;
     if (this.previous.get('setupSteady') !== String(unsteady)) {

@@ -282,6 +282,11 @@ export class Tracking {
       this.setup.start(nowMs);
     }
 
+    // Once it has run at all, it has been offered — otherwise finishing a run
+    // started from the C key or the calibrate button lets the auto-offer fire
+    // straight afterwards and start the whole thing over.
+    if (this.setup.running) this.setupOffered = true;
+
     if (this.setup.running) {
       this.setup.update(
         visible
@@ -289,7 +294,11 @@ export class Tracking {
               present: true,
               raw: visible.raw,
               depth: visible.depth,
-              curl: visible.curl,
+              // Every tracked hand, so the flow can read whichever one is
+              // actually being posed rather than whichever came back first.
+              curls: this.runtimes.map((runtime) =>
+                runtime.state.present ? runtime.state.curl : null,
+              ),
               position: visible.anchor,
               now: nowMs,
             }
@@ -297,7 +306,7 @@ export class Tracking {
               present: false,
               raw: { x: 0.5, y: 0.5 },
               depth: 0,
-              curl: null,
+              curls: [],
               position: { x: 0, y: 0, z: 0 },
               now: nowMs,
             },
@@ -317,6 +326,8 @@ export class Tracking {
             prompt: this.setup.prompt,
             progress: this.setup.progress,
             steadiness: this.setup.steadiness,
+            reading: this.setup.liveCurl,
+            captured: this.setup.capturedOpen,
           }
         : null,
     );

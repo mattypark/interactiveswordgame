@@ -58,14 +58,41 @@ const HIGH_PERCENTILE = 0.85;
 /** How long a correction stays on screen before normal prompts resume. */
 const MESSAGE_MS = 2200;
 
+/**
+ * An open hand reaches at least this far, in palm-lengths.
+ *
+ * Without this floor, a first step that catches a half-closed hand stores a
+ * low "open" reading, and then no fist on earth is far enough below it — the
+ * squeeze step rejects forever with no way back. Checking the capture at the
+ * point it's taken is what stops that loop existing.
+ */
+export const MIN_OPEN_RATIO = 1.38;
+
+/** Failed squeezes before giving up on the stored open reading and redoing it. */
+const MAX_SQUEEZE_RETRIES = 2;
+
+/**
+ * Refusals of the open pose before the floor is abandoned.
+ *
+ * Some hands and some cameras just read low. Insisting on the floor forever
+ * would only move the dead end from the squeeze step to this one, so after a
+ * couple of tries it takes the best reading it has actually seen and says so.
+ */
+const MAX_OPEN_RETRIES = 2;
+
 export interface SetupFrame {
   present: boolean;
   /** Raw normalised image position of the palm. */
   raw: { x: number; y: number };
   /** Camera distance, metres. */
   depth: number;
-  /** Uncalibrated reach ratio, or null when unmeasurable. */
-  curl: number | null;
+  /**
+   * Reach ratio for every tracked hand. Both hands are offered because people
+   * hold both up: the most open reading is used while capturing "open" and the
+   * most closed while capturing "squeeze", so it reads whichever hand is
+   * actually being posed rather than whichever the model happened to list first.
+   */
+  curls: readonly (number | null)[];
   /** World-space palm position — what steadiness is measured on. */
   position: { x: number; y: number; z: number };
   /** Milliseconds. */
@@ -82,9 +109,18 @@ interface Sample {
   x: number;
   y: number;
   z: number;
-  curl: number | null;
+  /** Most open reading this frame. */
+  openest: number | null;
+  /** Most closed reading this frame. */
+  closest: number | null;
   rawY: number;
   depth: number;
+}
+
+function pick(curls: readonly (number | null)[], mode: 'max' | 'min'): number | null {
+  const readings = curls.filter((curl): curl is number => curl !== null);
+  if (readings.length === 0) return null;
+  return mode === 'max' ? Math.max(...readings) : Math.min(...readings);
 }
 
 /** Range between the trimmed percentiles of `values`. */
@@ -107,12 +143,20 @@ export class SetupFlow {
   prompt = '';
   /** How still the hand is, 0..1. Drives the "hold still" feedback. */
   steadiness = 0;
+  /** Live reach ratio, shown so you can see the reading respond to your hand. */
+  liveCurl: number | null = null;
+  /** The open reading captured in step one, once there is one. */
+  capturedOpen: number | null = null;
 
   private samples: Sample[] = [];
   private stepStarted = 0;
   private lastSeen = 0;
   private openRatio = 0;
   private origin: SetupResult['origin'] | null = null;
+  private squeezeRetries = 0;
+  private openRetries = 0;
+  /** Highest open reading seen this session, for the fallback above. */
+  private bestOpenSeen = 0;
   /** Until this time, `prompt` holds a correction the user needs to read. */
   private promptUntil = 0;
 
@@ -125,8 +169,12 @@ export class SetupFlow {
 
   start(now = 0): void {
     this.step = 'centre';
+    this.squeezeRetries = 0;
+    this.openRetries = 0;
+    this.bestOpenSeen = 0;
+    this.capturedOpen = null;
     this.beginStep(now);
-    this.prompt = 'Hold your hand open where it feels comfortable';
+    this.prompt = 'Open your hand wide, fingers spread, and hold it still';
   }
 
   cancel(): void {
@@ -134,6 +182,11 @@ export class SetupFlow {
     this.samples = [];
     this.progress = 0;
     this.steadiness = 0;
+    this.liveCurl = null;
+    this.capturedOpen = null;
+    this.squeezeRetries = 0;
+    this.openRetries = 0;
+    this.bestOpenSeen = 0;
     this.prompt = '';
   }
 
@@ -167,12 +220,17 @@ export class SetupFlow {
     }
 
     this.lastSeen = frame.now;
+    const openest = pick(frame.curls, 'max');
+    const closest = pick(frame.curls, 'min');
+    this.liveCurl = this.step === 'squeeze' ? closest : openest;
+
     this.samples.push({
       t: frame.now,
       x: frame.position.x,
       y: frame.position.y,
       z: frame.position.z,
-      curl: frame.curl,
+      openest,
+      closest,
       rawY: frame.raw.y,
       depth: frame.depth,
     });
@@ -230,7 +288,7 @@ export class SetupFlow {
   /** Median, so one frame where the model loses a finger can't skew a capture. */
   private medianCurl(): number | null {
     const readings = this.samples
-      .map((sample) => sample.curl)
+      .map((sample) => (this.step === 'squeeze' ? sample.closest : sample.openest))
       .filter((curl): curl is number => curl !== null)
       .sort((a, b) => a - b);
     return readings.length === 0 ? null : (readings[Math.floor(readings.length / 2)] ?? null);
@@ -259,26 +317,61 @@ export class SetupFlow {
     const now = this.samples[this.samples.length - 1]?.t ?? this.stepStarted;
 
     if (this.step === 'centre') {
+      this.bestOpenSeen = Math.max(this.bestOpenSeen, ratio);
+
+      if (ratio < MIN_OPEN_RATIO && this.openRetries < MAX_OPEN_RETRIES) {
+        // Caught a hand that wasn't actually open. Storing this would make the
+        // squeeze step impossible to pass, so refuse it here instead.
+        this.openRetries += 1;
+        this.beginStep(now);
+        this.say('Open your hand wider — spread your fingers', now);
+        return false;
+      }
+
+      // Past the retries, take the widest reading actually seen rather than
+      // the last one — insisting on the floor forever is just another dead end.
+      const stored = ratio < MIN_OPEN_RATIO ? Math.max(ratio, this.bestOpenSeen) : ratio;
+
       this.origin = this.medianOrigin();
-      this.openRatio = ratio;
+      this.openRatio = stored;
+      this.capturedOpen = stored;
       this.step = 'squeeze';
       this.beginStep(now);
       // Sticky: the next frame's normal prompt would otherwise replace the
       // instruction before anyone has read it.
-      this.say('Now make a fist and hold it', now);
+      this.say(
+        stored < MIN_OPEN_RATIO
+          ? 'Your hand reads narrow — now make a tight fist and hold it'
+          : 'Now make a fist and hold it',
+        now,
+      );
       return true;
     }
 
     const calibration: GripCalibration = { openRatio: this.openRatio, fistRatio: ratio };
     if (!isUsableCalibration(calibration)) {
-      // Open and closed came out too alike — almost always the fist wasn't
-      // actually made. Say so instead of keeping a mapping that won't work.
+      this.squeezeRetries += 1;
+
+      if (this.squeezeRetries >= MAX_SQUEEZE_RETRIES) {
+        // Repeated failures almost always mean the stored open reading is the
+        // bad one, not the fist. Go back and take it again rather than asking
+        // for a tighter fist that was never the problem.
+        this.step = 'centre';
+        this.squeezeRetries = 0;
+        this.openRetries = 0;
+        this.capturedOpen = null;
+        this.beginStep(now);
+        this.say('Let us try again — open your hand wide and hold it still', now);
+        return false;
+      }
+
       this.beginStep(now);
       this.say('That looked like your open hand — squeeze tighter and hold', now);
       return false;
     }
 
     this.result = { origin: this.origin!, calibration };
+    this.squeezeRetries = 0;
     this.step = 'done';
     this.progress = 1;
     this.steadiness = 1;

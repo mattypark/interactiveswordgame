@@ -389,6 +389,21 @@ body {
   transition: width 80ms linear;
 }
 
+/* The live reach reading, so you can see the number respond to your hand
+   instead of guessing why a capture was refused. */
+.setup-overlay__reading {
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  min-height: 1.4em;
+}
+
+.setup-overlay__reading b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .setup-overlay__actions {
   display: flex;
   align-items: center;
