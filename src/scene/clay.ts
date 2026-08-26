@@ -67,6 +67,22 @@ export class ClayWorld {
     return object;
   }
 
+  /**
+   * Re-create a removed object under its original id, so undo restores the
+   * thing you deleted rather than a lookalike with a new name.
+   */
+  restore(id: string, kind: PrimitiveKind): ClayObject {
+    const object = this.spawn(kind);
+    this.group.remove(object.mesh);
+    this.objects.pop();
+
+    object.mesh.name = id;
+    const restored: ClayObject = { ...object, id };
+    this.objects.push(restored);
+    this.group.add(restored.mesh);
+    return restored;
+  }
+
   remove(id: string): ClayObject | null {
     const index = this.objects.findIndex((object) => object.id === id);
     if (index === -1) return null;

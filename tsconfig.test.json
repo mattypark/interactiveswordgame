@@ -19,6 +19,7 @@
     "src/hands/filter.ts",
     "src/hands/project.ts",
     "src/hands/grip.ts",
-    "src/interact/grab.ts"
+    "src/interact/grab.ts",
+    "src/interact/history.ts"
   ]
 }

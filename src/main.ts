@@ -8,6 +8,13 @@ import { HandsRig, type HandState } from './hands/hands.js';
 import { normaliseGrip } from './hands/grip.js';
 import { GrabController, type Aabb } from './interact/grab.js';
 import { Hold } from './interact/hold.js';
+import {
+  History,
+  cloneTransform,
+  type HistoryTarget,
+  type ObjectSnapshot,
+  type Transform,
+} from './interact/history.js';
 import { CalibrationFlow } from './hud/calibration.js';
 import { Hud } from './hud/hud.js';
 import { rig } from './state/rig.js';
@@ -29,8 +36,50 @@ stage.scene.add(hands.group);
 
 const calibration = new CalibrationFlow();
 
+function readTransform(object: THREE.Object3D): Transform {
+  return {
+    position: object.position.toArray() as [number, number, number],
+    quaternion: object.quaternion.toArray() as [number, number, number, number],
+    scale: object.scale.toArray() as [number, number, number],
+  };
+}
+
+function writeTransform(object: THREE.Object3D, transform: Transform): void {
+  object.position.fromArray(transform.position);
+  object.quaternion.fromArray(transform.quaternion);
+  object.scale.fromArray(transform.scale);
+}
+
+function snapshotOf(id: string): ObjectSnapshot | null {
+  const object = world.find(id);
+  if (!object) return null;
+  return { id, kind: object.kind, transform: readTransform(object.mesh) };
+}
+
+const historyTarget: HistoryTarget = {
+  create(snapshot) {
+    const object = world.restore(snapshot.id, snapshot.kind as never);
+    writeTransform(object.mesh, snapshot.transform);
+  },
+  destroy(id) {
+    releaseEverywhere(id);
+    world.remove(id);
+  },
+  setTransform(id, transform) {
+    const object = world.find(id);
+    if (object) writeTransform(object.mesh, transform);
+  },
+};
+
+const history = new History(historyTarget);
+
 /** One grab controller and one carry transform per hand. */
-const grabbers = hands.hands.map(() => ({ controller: new GrabController(), hold: new Hold() }));
+const grabbers = hands.hands.map(() => ({
+  controller: new GrabController(),
+  hold: new Hold(),
+  /** Pose of the held object when it was picked up, for the undo stack. */
+  grabbedFrom: null as { id: string; transform: Transform } | null,
+}));
 
 const hud = new Hud();
 hud.setActiveMode(rig.mode);
@@ -48,16 +97,20 @@ hud.on((action) => {
       hud.setActiveMode(action.mode);
       break;
 
-    case 'spawn':
-      world.spawn(action.kind);
+    case 'spawn': {
+      const spawned = world.spawn(action.kind);
+      history.push({ type: 'spawn', snapshot: snapshotOf(spawned.id)! });
       break;
+    }
 
     case 'delete': {
       // Whatever a hand is holding or hovering, else the most recent spawn.
       const id = rig.held ?? rig.target ?? world.objects.at(-1)?.id ?? null;
-      if (id) {
+      const snapshot = id ? snapshotOf(id) : null;
+      if (id && snapshot) {
         releaseEverywhere(id);
         world.remove(id);
+        history.push({ type: 'delete', snapshot });
       }
       break;
     }
@@ -67,8 +120,16 @@ hud.on((action) => {
       else calibration.begin(action.step);
       break;
 
+    case 'undo':
+      history.undo();
+      break;
+
+    case 'redo':
+      history.redo();
+      break;
+
     default:
-      // undo/redo/physics land in later stages.
+      // Physics lands in the next stage.
       break;
   }
 });
@@ -113,7 +174,8 @@ function updateGrabbing(): void {
 
   for (let i = 0; i < states.length; i += 1) {
     const state = states[i]!;
-    const { controller, hold } = grabbers[i]!;
+    const grabber = grabbers[i]!;
+    const { controller, hold } = grabber;
 
     state.grip =
       state.present && state.curl !== null
@@ -128,12 +190,28 @@ function updateGrabbing(): void {
 
     if (event?.type === 'grab') {
       const object = world.find(event.id);
-      if (object) hold.begin(state.anchor, state.orientation, object.mesh);
+      if (object) {
+        hold.begin(state.anchor, state.orientation, object.mesh);
+        grabber.grabbedFrom = { id: event.id, transform: readTransform(object.mesh) };
+      }
     }
 
     if (grab.held) {
       const object = world.find(grab.held);
-      if (object) hold.apply(state.anchor, state.orientation, object.mesh);
+      if (object) hold.apply(state.anchor, state.orientation, object.mesh, rig.mode);
+    }
+
+    if (event?.type === 'release' && grabber.grabbedFrom) {
+      const object = world.find(grabber.grabbedFrom.id);
+      if (object) {
+        history.push({
+          type: 'transform',
+          id: grabber.grabbedFrom.id,
+          before: cloneTransform(grabber.grabbedFrom.transform),
+          after: readTransform(object.mesh),
+        });
+      }
+      grabber.grabbedFrom = null;
     }
 
     hit = hit || grab.hit;
@@ -178,5 +256,6 @@ if (import.meta.env.DEV) {
     rig,
     calibration,
     grabbers,
+    history,
   };
 }
