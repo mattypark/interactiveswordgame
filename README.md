@@ -136,6 +136,15 @@ rather than about flailing at the camera.
 Damage scales with speed and with how square you landed it. Their guard cuts
 it to a third.
 
+Every decision the opponent makes has slack in it. Tracked head position
+carries a couple of centimetres of noise, and a bare threshold turns that into
+a new movement decision sixty times a second — the legs stutter and the whole
+thing reads as broken. The range thresholds widen once you're inside them, a
+movement state has to hold briefly before another can replace it, and what the
+fighter chases is your head position smoothed again on top of the filtering the
+tracker already does. It only walks at 0.4 m/s; it has no use for millisecond
+precision.
+
 The opponent closes distance, backs off when you crowd it, and telegraphs
 every punch with a visible wind-up — an opponent you can't read isn't
 difficult, just unfair. It guards when it reads your wind-up, and how often it
@@ -195,6 +204,10 @@ from the tracker doesn't count as you moving.
 The bar goes amber when you're wobbling, eases back rather than snapping to
 zero, and after seven seconds it just takes what it has — being roughly
 calibrated beats being stuck. **Capture now** commits immediately.
+
+There's a gauge showing where your hand sits between a fist and an open hand,
+with the range the current step needs highlighted and a tick at whatever your
+open pose measured. A number on its own doesn't tell you which way to move.
 
 It also shows the live reach reading under the bar. Open should read high,
 around 1.8; a fist should read near 1.0. If it isn't moving between the two,

@@ -21,6 +21,14 @@ type HudHandler = (action: HudAction) => void;
 /** Round pips drawn per fighter — matches ROUNDS_TO_WIN in match.ts. */
 const ROUNDS_SHOWN = 2;
 
+/** Reach ratios the calibration gauge spans, fist to open. */
+const GAUGE_LOW = 0.95;
+const GAUGE_HIGH = 2.05;
+
+function gaugePercent(ratio: number): number {
+  return Math.max(0, Math.min(100, ((ratio - GAUGE_LOW) / (GAUGE_HIGH - GAUGE_LOW)) * 100));
+}
+
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`HUD element #${id} missing from index.html`);
@@ -79,6 +87,9 @@ export class Hud {
     setupSkip: el<HTMLButtonElement>('setup-skip'),
     setupCapture: el<HTMLButtonElement>('setup-capture'),
     setupReading: el('setup-reading'),
+    setupZone: el('setup-zone'),
+    setupMark: el('setup-mark'),
+    setupNeedle: el('setup-needle'),
     fightHud: el('fight-hud'),
     fightYou: el('fight-you'),
     fightThem: el('fight-them'),
@@ -320,6 +331,39 @@ export class Hud {
     }
   }
 
+  /** Needle at the current reading, band over what the step wants. */
+  private drawGauge(
+    reading: number | null,
+    captured: number | null,
+    zone: { from: number; to: number },
+  ): void {
+    const { nodes } = this;
+
+    const from = gaugePercent(zone.from);
+    const width = Math.max(0, gaugePercent(zone.to) - from);
+    const key = `${from.toFixed(1)}:${width.toFixed(1)}`;
+    if (this.previous.get('gaugeZone') !== key) {
+      this.previous.set('gaugeZone', key);
+      nodes.setupZone.style.left = `${from}%`;
+      nodes.setupZone.style.width = `${width}%`;
+    }
+
+    if (reading !== null) {
+      const needle = gaugePercent(reading).toFixed(1);
+      if (this.previous.get('gaugeNeedle') !== needle) {
+        this.previous.set('gaugeNeedle', needle);
+        nodes.setupNeedle.style.left = `${needle}%`;
+      }
+    }
+
+    const mark = captured === null ? null : gaugePercent(captured).toFixed(1);
+    if (this.previous.get('gaugeMark') !== (mark ?? '')) {
+      this.previous.set('gaugeMark', mark ?? '');
+      nodes.setupMark.hidden = mark === null;
+      if (mark !== null) nodes.setupMark.style.left = `${mark}%`;
+    }
+  }
+
   private writeWidth(key: string, node: HTMLElement, percent: number): void {
     const rounded = Math.round(percent);
     if (this.previous.get(key) === String(rounded)) return;
@@ -363,6 +407,8 @@ export class Hud {
       steadiness: number;
       reading: number | null;
       captured: number | null;
+      /** Range of reach ratios this step is asking for. */
+      zone: { from: number; to: number };
     } | null,
   ): void {
     const { nodes } = this;
@@ -381,6 +427,8 @@ export class Hud {
 
     // Showing the raw reach reading turns "why won't it take my fist" into
     // something you can see: open should read high, a fist low.
+    this.drawGauge(state.reading, state.captured, state.zone);
+
     const reading =
       state.reading === null
         ? 'no hand in frame'

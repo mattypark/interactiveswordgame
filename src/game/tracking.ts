@@ -328,6 +328,7 @@ export class Tracking {
             steadiness: this.setup.steadiness,
             reading: this.setup.liveCurl,
             captured: this.setup.capturedOpen,
+            zone: this.setup.targetZone,
           }
         : null,
     );

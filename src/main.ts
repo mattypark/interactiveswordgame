@@ -99,9 +99,19 @@ hud.on((action) => {
 
 let lastFrameMs = performance.now();
 
+/**
+ * Longest step anything is advanced by in one frame.
+ *
+ * A backgrounded tab, a garbage collection or a slow model frame hands back a
+ * huge delta, and every system downstream would apply it at once — the fighter
+ * teleports, thrown blocks jump through walls. Losing a little time under load
+ * is invisible; the jumps are not.
+ */
+const MAX_FRAME_STEP = 1 / 20;
+
 function frame(): void {
   const now = performance.now();
-  const dt = (now - lastFrameMs) / 1000;
+  const dt = Math.min((now - lastFrameMs) / 1000, MAX_FRAME_STEP);
   lastFrameMs = now;
 
   tracking.update(now);

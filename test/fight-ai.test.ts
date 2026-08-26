@@ -145,6 +145,83 @@ test('it turns to face you rather than snapping round', () => {
   assert.ok(Number.isFinite(ai.facing));
 });
 
+test('a target wobbling on the range threshold does not make it stutter', () => {
+  // This is the bug the hysteresis exists for: tracked head position carries a
+  // couple of centimetres of noise, and a bare threshold turns that into a new
+  // movement decision every single frame.
+  const ai = new FightAi(NEVER);
+  const dt = 1 / 60;
+
+  let changes = 0;
+  let previous = ai.state;
+  for (let i = 0; i < 60 * 4; i += 1) {
+    // Sitting right on preferredRange, jittering 2cm either side.
+    const wobble = Math.sin(i * 2.7) * 0.02;
+    const head = { x: ai.x, z: ai.z + DEFAULT_FIGHT.preferredRange + wobble };
+    ai.update(dt, { playerHead: head, playerWindingUp: false });
+
+    // Punching states are driven by their own timers, not by the threshold.
+    const movement = ai.state === 'approach' || ai.state === 'retreat' || ai.state === 'idle';
+    if (movement && ai.state !== previous) changes += 1;
+    if (movement) previous = ai.state;
+  }
+
+  // Four seconds at 60fps is 240 chances to flip. A handful is fine; dozens is
+  // the stutter.
+  assert.ok(changes < 15, `movement state changed ${changes} times on a steady target`);
+});
+
+test('it never winds up from inside its own guard', () => {
+  const ai = new FightAi(NEVER);
+  const crowding = { x: ai.x, z: ai.z + DEFAULT_FIGHT.tooClose * 0.4 };
+
+  let sawWind = false;
+  for (let i = 0; i < 120; i += 1) {
+    ai.update(1 / 60, { playerHead: crowding, playerWindingUp: false });
+    if (ai.state === 'wind' || ai.state === 'strike') sawWind = true;
+    // Once it has backed off far enough, winding up is legitimate again.
+    if (Math.hypot(crowding.x - ai.x, crowding.z - ai.z) >= DEFAULT_FIGHT.tooClose) break;
+  }
+
+  assert.equal(sawWind, false, 'threw a punch from point-blank instead of stepping back');
+});
+
+test('a single bad frame does not knock it off course for long', () => {
+  const ai = new FightAi(NEVER);
+  const far = () => ({ x: ai.x, z: ai.z + 1.2 });
+
+  for (let i = 0; i < 30; i += 1) ai.update(1 / 60, { playerHead: far(), playerWindingUp: false });
+  assert.equal(ai.state, 'approach');
+
+  // One frame reporting the target as in-range — a tracking blip. Stopping for
+  // it is correct; what matters is that it picks the walk back up rather than
+  // oscillating or freezing.
+  ai.update(1 / 60, {
+    playerHead: { x: ai.x, z: ai.z + DEFAULT_FIGHT.preferredRange - 0.01 },
+    playerWindingUp: false,
+  });
+
+  for (let i = 0; i < 20; i += 1) ai.update(1 / 60, { playerHead: far(), playerWindingUp: false });
+  assert.equal(ai.state, 'approach', 'never resumed after a one-frame blip');
+});
+
+test('one bad tracking frame cannot commit it to a punch', () => {
+  // A punch is a second-long animation it can't take back, so it must not be
+  // triggered by a single frame that happened to report you in range.
+  const ai = new FightAi(NEVER);
+  const far = () => ({ x: ai.x, z: ai.z + 1.2 });
+
+  for (let i = 0; i < 30; i += 1) ai.update(1 / 60, { playerHead: far(), playerWindingUp: false });
+  assert.equal(ai.state, 'approach');
+
+  ai.update(1 / 60, {
+    playerHead: { x: ai.x, z: ai.z + DEFAULT_FIGHT.preferredRange - 0.01 },
+    playerWindingUp: false,
+  });
+  assert.notEqual(ai.state, 'wind', 'threw a punch at nothing off one frame');
+  assert.notEqual(ai.state, 'strike');
+});
+
 test('harder difficulties are actually harder', () => {
   const easy: FightOptions = DIFFICULTIES.easy;
   const hard: FightOptions = DIFFICULTIES.hard;
@@ -152,6 +229,8 @@ test('harder difficulties are actually harder', () => {
   assert.ok(hard.speed > easy.speed);
   assert.ok(hard.cooldownSeconds < easy.cooldownSeconds);
   assert.ok(hard.awareness > easy.awareness);
+  // Sharper reactions, but still never sharp enough to stutter.
+  assert.ok(hard.minDwellSeconds > 0);
   // And it telegraphs less, so you have less time to react.
   assert.ok(hard.windSeconds < easy.windSeconds);
 });

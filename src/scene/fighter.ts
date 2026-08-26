@@ -28,6 +28,15 @@ const ARM_REACH = 0.2;
 /** How far it pulls back during the wind-up. */
 const ARM_WIND = 0.055;
 
+/**
+ * How fast the drawn body catches up to where the AI thinks it is.
+ *
+ * The AI already moves in small steps, but a dropped frame hands it a big one,
+ * and a body that teleports half a step reads as a bug even when the logic was
+ * right. Easing costs a few milliseconds of lag and removes every visible jump.
+ */
+const BODY_FOLLOW_RATE = 12;
+
 export class Fighter {
   readonly group = new THREE.Group();
   readonly ai: FightAi;
@@ -48,6 +57,8 @@ export class Fighter {
 
   private hurtFlash = 0;
   private stride = 0;
+  /** Idle clock, kept separate so footwork doesn't reset when it stops. */
+  private sway = 0;
 
   constructor(options: FightOptions = DEFAULT_FIGHT) {
     this.ai = new FightAi(options);
@@ -116,7 +127,11 @@ export class Fighter {
       hurt: boolean;
     },
   ): void {
-    this.group.position.set(pose.head.x, 0, pose.head.z);
+    // Network state arrives twelve times a second; easing turns that into
+    // movement rather than a stop-motion sequence.
+    const follow = Math.min(1, dtSeconds * BODY_FOLLOW_RATE);
+    this.group.position.x += (pose.head.x - this.group.position.x) * follow;
+    this.group.position.z += (pose.head.z - this.group.position.z) * follow;
 
     // Face the player, who is always on the near side of the volume.
     const desired = Math.atan2(-pose.head.x, 1);
@@ -139,7 +154,9 @@ export class Fighter {
   update(dtSeconds: number, input: FightInput): { punched: boolean; guarding: boolean } {
     const result = this.ai.update(dtSeconds, input);
 
-    this.group.position.set(this.ai.x, 0, this.ai.z);
+    const follow = Math.min(1, dtSeconds * BODY_FOLLOW_RATE);
+    this.group.position.x += (this.ai.x - this.group.position.x) * follow;
+    this.group.position.z += (this.ai.z - this.group.position.z) * follow;
     this.body.rotation.y = this.ai.facing;
     // Rock back when staggered, and lean into a strike.
     this.body.rotation.x = -this.ai.staggerAmount * 0.34 + this.ai.strikeProgress * 0.1;
@@ -184,6 +201,8 @@ export class Fighter {
   }
 
   private poseLegs(dtSeconds: number): void {
+    this.sway += dtSeconds * 2.6;
+
     const moving = this.ai.state === 'approach' || this.ai.state === 'retreat';
     if (moving) {
       this.stride += dtSeconds * 8;
@@ -191,10 +210,16 @@ export class Fighter {
       this.legs[0]!.rotation.x = swing;
       this.legs[1]!.rotation.x = -swing;
       this.body.position.y = Math.abs(Math.sin(this.stride)) * 0.005;
-    } else {
-      for (const leg of this.legs) leg.rotation.x *= 0.86;
-      this.body.position.y *= 0.86;
+      return;
     }
+
+    // Idle footwork. At a normal sitting distance it can reach you without
+    // moving, so it would otherwise stand dead still between punches — and a
+    // statue that occasionally lurches reads as broken even when it isn't.
+    const shift = Math.sin(this.sway) * 0.12;
+    this.legs[0]!.rotation.x += (shift - this.legs[0]!.rotation.x) * Math.min(1, dtSeconds * 6);
+    this.legs[1]!.rotation.x += (-shift - this.legs[1]!.rotation.x) * Math.min(1, dtSeconds * 6);
+    this.body.position.y = Math.abs(Math.sin(this.sway * 1.5)) * 0.004;
   }
 
   private tint(guarding: boolean, dtSeconds: number): void {

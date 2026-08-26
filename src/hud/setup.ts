@@ -21,7 +21,11 @@
  * Pure — no three.js, no DOM.
  */
 
-import { isUsableCalibration, type GripCalibration } from '../hands/grip.js';
+import {
+  MIN_CALIBRATION_SPREAD,
+  isUsableCalibration,
+  type GripCalibration,
+} from '../hands/grip.js';
 
 export type SetupStep = 'idle' | 'centre' | 'squeeze' | 'done';
 
@@ -383,6 +387,18 @@ export class SetupFlow {
   private say(text: string, now: number): void {
     this.prompt = text;
     this.promptUntil = now + MESSAGE_MS;
+  }
+
+  /**
+   * The range of reach ratios the current step is asking for, so the gauge can
+   * show you where to get to rather than only where you are.
+   */
+  get targetZone(): { from: number; to: number } {
+    if (this.step === 'squeeze' && this.capturedOpen !== null) {
+      return { from: 0, to: this.capturedOpen - MIN_CALIBRATION_SPREAD };
+    }
+    if (this.step === 'squeeze') return { from: 0, to: MIN_OPEN_RATIO - MIN_CALIBRATION_SPREAD };
+    return { from: MIN_OPEN_RATIO, to: 3 };
   }
 
   /** Read the result once and clear it. */

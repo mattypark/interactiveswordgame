@@ -28,6 +28,22 @@ export interface FightOptions {
   cooldownSeconds: number;
   /** How much of your wind-up it reads, 0..1. Higher guards more. */
   awareness: number;
+  /**
+   * Slack around the range thresholds, metres.
+   *
+   * Without it, a tracked head that wobbles a couple of centimetres flips the
+   * fighter between approaching and standing still every single frame — the
+   * legs stutter, the body jerks, and it reads as the whole thing being
+   * broken. Same reason grabbing uses two thresholds instead of one.
+   */
+  rangeBand: number;
+  /**
+   * Shortest time a movement state has to hold before another can replace it.
+   *
+   * Belt and braces with the band above: even a hand that crosses the
+   * threshold for real shouldn't produce a new decision every 16ms.
+   */
+  minDwellSeconds: number;
   /** How far it can wander from centre, metres. */
   arena: { minX: number; maxX: number; minZ: number; maxZ: number };
   /** Injectable so tests can decide when it chooses to guard. */
@@ -43,6 +59,8 @@ export const DEFAULT_FIGHT: FightOptions = {
   staggerSeconds: 0.5,
   cooldownSeconds: 1.05,
   awareness: 0.6,
+  rangeBand: 0.07,
+  minDwellSeconds: 0.18,
   arena: { minX: -0.34, maxX: 0.34, minZ: -0.5, maxZ: -0.05 },
 };
 
@@ -50,7 +68,15 @@ export const DEFAULT_FIGHT: FightOptions = {
 export const DIFFICULTIES = {
   easy: { ...DEFAULT_FIGHT, speed: 0.3, cooldownSeconds: 1.7, awareness: 0.3, windSeconds: 0.46 },
   normal: DEFAULT_FIGHT,
-  hard: { ...DEFAULT_FIGHT, speed: 0.55, cooldownSeconds: 0.7, awareness: 0.85, windSeconds: 0.26 },
+  hard: {
+    ...DEFAULT_FIGHT,
+    speed: 0.55,
+    cooldownSeconds: 0.7,
+    awareness: 0.85,
+    windSeconds: 0.26,
+    // Sharper reactions, but never sharp enough to stutter.
+    minDwellSeconds: 0.12,
+  },
 } as const;
 
 export interface FightInput {
@@ -88,6 +114,8 @@ export class FightAi {
   private timer = 0;
   private cooldown = 0;
   private guardHold = 0;
+  /** How long the current movement state has been held. */
+  private dwell = 0;
 
   constructor(private readonly options: FightOptions = DEFAULT_FIGHT) {
     this.x = 0;
@@ -101,6 +129,7 @@ export class FightAi {
   /** Interrupt whatever it's doing and knock it back. */
   hit(direction: { x: number; z: number }, strength: number): void {
     this.state = 'stagger';
+    this.dwell = 0;
     this.timer = this.options.staggerSeconds;
     this.staggerAmount = 1;
     this.windProgress = 0;
@@ -179,20 +208,48 @@ export class FightAi {
         break;
 
       default: {
-        // Idle, approach or retreat: close the gap, then commit.
-        if (distance > o.preferredRange) {
-          this.state = 'approach';
-          this.step(dx, dz, distance, o.speed * dt);
-        } else if (distance < o.tooClose) {
-          this.state = 'retreat';
-          this.step(-dx, -dz, distance, o.speed * dt);
-        } else if (this.cooldown === 0) {
+        this.dwell += dt;
+
+        // Thresholds widen once you're inside them, so a wobbling target can't
+        // push it back out again immediately.
+        const approachAt = this.state === 'approach' ? o.preferredRange : o.preferredRange + o.rangeBand;
+        const retreatAt = this.state === 'retreat' ? o.tooClose + o.rangeBand : o.tooClose;
+
+        const wanted: FightState =
+          distance > approachAt ? 'approach' : distance < retreatAt ? 'retreat' : 'idle';
+
+        // Being crowded is urgent; it doesn't wait out the dwell to react.
+        if (wanted === 'retreat' && this.state !== 'retreat') this.dwell = o.minDwellSeconds;
+
+        // Keep moving in the current direction until the state is allowed to
+        // change, rather than freezing mid-step.
+        const settled = this.dwell >= o.minDwellSeconds;
+        const state = settled || wanted === this.state ? wanted : this.state;
+        if (state !== this.state) {
+          this.state = state;
+          this.dwell = 0;
+        }
+
+        if (this.state === 'approach') this.step(dx, dz, distance, o.speed * dt);
+        else if (this.state === 'retreat') this.step(-dx, -dz, distance, o.speed * dt);
+        else if (
+          this.cooldown === 0 &&
+          distance <= o.preferredRange + o.rangeBand &&
+          // Never throw one from inside its own guard: back off first.
+          distance >= o.tooClose &&
+          // And only once it has genuinely been standing in range, not on the
+          // strength of a single frame. One bad tracking frame used to be
+          // enough to commit it to a punch at nothing, and a punch is a
+          // second-long animation it can't take back.
+          this.state === 'idle' &&
+          this.dwell >= o.minDwellSeconds
+        ) {
           this.state = 'wind';
+          this.dwell = 0;
           this.timer = o.windSeconds;
           this.windProgress = 0;
-        } else {
-          this.state = 'idle';
         }
+
         this.decay(dt);
       }
     }

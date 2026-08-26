@@ -26,6 +26,17 @@ const GUARD_REDUCTION = 0.35;
 /** Damage one of its punches does to you. */
 const OPPONENT_DAMAGE = 8;
 
+/**
+ * How fast the AI's idea of where you are catches up to where you are.
+ *
+ * The tracked head already has a filter on it, tuned so the marker feels
+ * responsive. Decisions want the opposite: a couple of centimetres of residual
+ * wobble is nothing to look at and everything to a threshold test, so what the
+ * fighter chases is smoothed again, harder. It only walks at 0.4 m/s — it has
+ * no use for millisecond precision.
+ */
+const TARGET_FOLLOW_RATE = 4;
+
 export class FightWorld {
   readonly group = new THREE.Group();
   readonly match = new Match();
@@ -33,6 +44,9 @@ export class FightWorld {
   private readonly fighter: Fighter;
   private readonly punches: PunchDetector[];
   private readonly headTarget = new THREE.Vector3();
+  /** Smoothed player position, which is what the AI actually chases. */
+  private readonly aiTarget = new THREE.Vector3();
+  private aiTargetPrimed = false;
 
   constructor(
     private readonly tracking: Tracking,
@@ -62,7 +76,8 @@ export class FightWorld {
     const head = this.tracking.head;
 
     // It only chases something it can see.
-    const playerHead = head.present ? { x: head.position.x, z: head.position.z } : null;
+    const playerHead = head.present ? this.followTarget(head.position, dtSeconds) : null;
+    if (!head.present) this.aiTargetPrimed = false;
 
     const result = this.fighter.update(dtSeconds, {
       playerHead: fighting ? playerHead : null,
@@ -77,6 +92,18 @@ export class FightWorld {
     if (fighting) this.resolvePlayerPunches(nowMs, result.guarding);
 
     this.publish();
+  }
+
+  /** Ease the AI's target toward the tracked head and hand back the flat form. */
+  private followTarget(head: THREE.Vector3, dtSeconds: number): { x: number; z: number } {
+    if (!this.aiTargetPrimed) {
+      // Snap on first sight, so it doesn't glide in from wherever it left off.
+      this.aiTarget.copy(head);
+      this.aiTargetPrimed = true;
+    } else {
+      this.aiTarget.lerp(head, Math.min(1, dtSeconds * TARGET_FOLLOW_RATE));
+    }
+    return { x: this.aiTarget.x, z: this.aiTarget.z };
   }
 
   /** Is either hand moving fast enough to read as a wind-up? */

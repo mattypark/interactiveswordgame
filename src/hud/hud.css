@@ -389,6 +389,71 @@ body {
   transition: width 80ms linear;
 }
 
+/* ----------------------------- gauge ------------------------------ */
+
+/* Where the current hand sits between a fist and an open hand, with the zone
+   the step needs highlighted. A number alone doesn't tell you which way to
+   move; this does. */
+.gauge {
+  position: relative;
+  height: 26px;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gauge__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(77, 163, 255, 0.28);
+  transition: left 160ms ease, width 160ms ease;
+}
+
+.gauge__needle {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: #f2f5ff;
+  border-radius: 2px;
+  transition: left 70ms linear;
+}
+
+/* Where the open hand was captured, so step two has a reference. */
+.gauge__mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.gauge__mark[hidden] {
+  display: none;
+}
+
+.gauge__end {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.gauge__end--low {
+  left: 7px;
+}
+
+.gauge__end--high {
+  right: 7px;
+}
+
 /* The live reach reading, so you can see the number respond to your hand
    instead of guessing why a capture was refused. */
 .setup-overlay__reading {
