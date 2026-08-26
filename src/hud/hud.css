@@ -393,3 +393,213 @@ body {
   margin-top: 14px;
   font-size: 11px;
 }
+
+/* ================================================================
+   Full-screen menus. Deliberately loud — a fighting game select
+   screen, not a settings panel. Red and blue are the same two
+   colours the hands are drawn in, so the palette means something.
+   ================================================================ */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 80% at 15% 0%, rgba(77, 163, 255, 0.16), transparent 60%),
+    radial-gradient(120% 80% at 85% 100%, rgba(255, 90, 106, 0.16), transparent 60%),
+    #0a0b12;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.screen__body {
+  width: min(560px, 100%);
+}
+
+.screen__body--wide {
+  width: min(1000px, 100%);
+}
+
+.screen__eyebrow {
+  margin: 0 0 14px;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.screen__title {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: clamp(56px, 13vw, 128px);
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+  color: #f2f5ff;
+}
+
+/* The second half sits under the first and takes the red, so the two
+   halves read as the two punches of the combination. */
+.screen__title em {
+  display: block;
+  font-style: normal;
+  margin-left: 0.42em;
+  color: #ff5a6a;
+}
+
+.screen__heading {
+  margin: 0 0 22px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: clamp(30px, 5vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f2f5ff;
+}
+
+.screen__lede {
+  max-width: 42ch;
+  margin: 22px 0 34px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #aeb6cd;
+}
+
+.screen__foot {
+  margin: 30px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.screen__back {
+  margin-top: 26px;
+  font-size: 12px;
+}
+
+/* ------------------------------ menu ----------------------------- */
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menu__item {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 14px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  /* Only transform and colour — cheap, and honest about what moves. */
+  transition: background 160ms ease, transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(8px);
+  outline: none;
+}
+
+.menu__index {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.menu__label {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.menu__note {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+/* ------------------------------ maps ----------------------------- */
+
+.maps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.map {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.map:hover,
+.map:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-3px);
+  outline: none;
+}
+
+/* A slice of the map's own palette, so you can tell them apart at a glance. */
+.map__swatch {
+  height: 92px;
+  border-bottom: 1px solid var(--line);
+}
+
+.map__name {
+  padding: 0 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.map__tagline {
+  padding: 0 14px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+@media (max-width: 520px) {
+  .menu__item {
+    grid-template-columns: 34px 1fr;
+  }
+
+  .menu__note {
+    grid-column: 2;
+  }
+}
+
+/* Panels a map doesn't use stay out of the way without unbinding them. */
+[data-map-hidden='true'] {
+  display: none !important;
+}

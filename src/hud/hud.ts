@@ -252,6 +252,21 @@ export class Hud {
     this.nodes.calibState.textContent = text;
   }
 
+  /** Hide the whole in-game HUD while a menu is up. */
+  setVisible(visible: boolean): void {
+    for (const panel of document.querySelectorAll<HTMLElement>('.panel, .btn--spawn')) {
+      panel.hidden = !visible;
+    }
+  }
+
+  /** The editor toolbar only means anything in the sandbox. */
+  setToolbarVisible(visible: boolean): void {
+    const toolbar = document.querySelector<HTMLElement>('.panel--toolbar');
+    if (toolbar) toolbar.dataset.mapHidden = visible ? '' : 'true';
+    const spawn = document.querySelector<HTMLElement>('.btn--spawn');
+    if (spawn) spawn.dataset.mapHidden = visible ? '' : 'true';
+  }
+
   /** Drive the guided setup overlay. Pass null to hide it. */
   setSetup(state: { step: string; prompt: string; progress: number } | null): void {
     const { nodes } = this;

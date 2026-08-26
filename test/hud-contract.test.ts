@@ -16,7 +16,16 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 
 const html = readFileSync(resolve(root, 'index.html'), 'utf8');
-const hudSource = readFileSync(resolve(root, 'src/hud/hud.ts'), 'utf8');
+
+/**
+ * Every module that reaches into the markup by id. Add to this list when a new
+ * one appears, or the "unused id" check below will fail and tell you to.
+ */
+const CONSUMERS = ['src/hud/hud.ts', 'src/app/router.ts'] as const;
+
+const consumerSource = CONSUMERS.map((path) => readFileSync(resolve(root, path), 'utf8')).join(
+  '\n',
+);
 
 function markupIds(source: string): Set<string> {
   return new Set([...source.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1] as string));
@@ -26,23 +35,23 @@ function requestedIds(source: string): Set<string> {
   return new Set([...source.matchAll(/\bel(?:<[^>]*>)?\('([^']+)'\)/g)].map((m) => m[1] as string));
 }
 
-test('every id the HUD asks for exists in index.html', () => {
+test('every id the UI asks for exists in index.html', () => {
   const available = markupIds(html);
-  const missing = [...requestedIds(hudSource)].filter((id) => !available.has(id));
-  assert.deepEqual(missing, [], `hud.ts reads ids absent from index.html: ${missing.join(', ')}`);
+  const missing = [...requestedIds(consumerSource)].filter((id) => !available.has(id));
+  assert.deepEqual(missing, [], `code reads ids absent from index.html: ${missing.join(', ')}`);
 });
 
-test('the HUD reads every id declared in the markup', () => {
-  const requested = requestedIds(hudSource);
-  // The canvas is owned by the render stage, not the HUD.
+test('the UI reads every id declared in the markup', () => {
+  const requested = requestedIds(consumerSource);
+  // The canvas is owned by the render stage, not by any id consumer.
   const exempt = new Set(['stage']);
   const unused = [...markupIds(html)].filter((id) => !requested.has(id) && !exempt.has(id));
   assert.deepEqual(unused, [], `index.html declares unused ids: ${unused.join(', ')}`);
 });
 
-test('the HUD asks for a non-trivial number of ids', () => {
+test('the contract checks a non-trivial number of ids', () => {
   // Guards against the regexes above silently matching nothing and the
   // comparisons passing on two empty sets.
-  assert.ok(requestedIds(hudSource).size > 10);
+  assert.ok(requestedIds(consumerSource).size > 10);
   assert.ok(markupIds(html).size > 10);
 });

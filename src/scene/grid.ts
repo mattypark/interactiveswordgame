@@ -72,7 +72,15 @@ const FRAGMENT = /* glsl */ `
   }
 `;
 
-export function createGrid(): THREE.Group {
+export interface GridColors {
+  fine: number;
+  coarse: number;
+  axis: number;
+}
+
+const DEFAULT_COLORS: GridColors = { fine: 0x8b93b0, coarse: 0xb9c1da, axis: 0xf2f5ff };
+
+export function createGrid(colors: GridColors = DEFAULT_COLORS): THREE.Group {
   const group = new THREE.Group();
 
   const material = new THREE.ShaderMaterial({
@@ -81,9 +89,9 @@ export function createGrid(): THREE.Group {
     transparent: true,
     depthWrite: false,
     uniforms: {
-      uFine: { value: new THREE.Color(0x8b93b0) },
-      uCoarse: { value: new THREE.Color(0xb9c1da) },
-      uAxis: { value: new THREE.Color(0xf2f5ff) },
+      uFine: { value: new THREE.Color(colors.fine) },
+      uCoarse: { value: new THREE.Color(colors.coarse) },
+      uAxis: { value: new THREE.Color(colors.axis) },
       uFineSize: { value: FINE },
       uCoarseSize: { value: COARSE },
       uFadeStart: { value: FADE_START },

@@ -1,8 +1,11 @@
-# interactive sword game
+# ONE TWO
 
-A browser game you play with your hands. A webcam watches you, your hand shows up in the
-scene as a 3D skeleton, and closing your fist around a block picks it up. Swords come later —
-right now the job is making "reach out and grab that thing" feel real.
+A fighting game you play with your hands. Your webcam is the controller: it tracks
+your hands into a 3D scene, and you throw straight punches at your opponent's head
+while trying not to eat one yourself. Live, against another person, eventually.
+
+Repo is still called `interactiveswordgame` — it started as a sword and became a
+fist fight.
 
 Built after a demo seen at a YC hackathon. That build used **two** cameras for stereo depth and
 a real **EMG armband** for grip force. This one does it with a single laptop webcam and no extra
@@ -51,7 +54,13 @@ at runtime and the app works offline after first load.
 | 5 | Toolbar wiring: modes, primitives, undo/redo | |
 | 6 | Throwing, the visible play box, depth readout, mirror toggle | done |
 | 7 | Test dummy to hit | done |
-| 8 | Sword | |
+| 8 | Depth direction, spawn point, hand colours | done |
+| 9 | NPC, camera modes | done |
+| 10 | Guided setup, solid hands | done |
+| 11 | Welcome screen, map select, mode shell | done |
+| 12 | Head tracking — your head is a target | |
+| 13 | A fighter that moves and hits back | |
+| 14 | Live versus over Convex | |
 
 ## Setup keys
 

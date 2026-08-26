@@ -3,11 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>interactive sword game — hand grab</title>
+    <title>ONE TWO — a fighting game you play with your hands</title>
     <link rel="stylesheet" href="/src/hud/hud.css" />
   </head>
   <body>
     <canvas id="stage"></canvas>
+
+    <!-- ===================== welcome ===================== -->
+    <section class="screen" id="screen-welcome" hidden>
+      <div class="screen__body">
+        <p class="screen__eyebrow">camera in &middot; fists out</p>
+        <h1 class="screen__title">ONE<em>TWO</em></h1>
+        <p class="screen__lede">
+          Your webcam is the controller. Throw a straight punch at their head.
+          Don&rsquo;t let them land one on yours.
+        </p>
+
+        <nav class="menu">
+          <button class="menu__item" data-go="maps" data-mode="fight">
+            <span class="menu__index">01</span>
+            <span class="menu__label">Fight</span>
+            <span class="menu__note">Against the machine</span>
+          </button>
+          <button class="menu__item" data-go="lobby">
+            <span class="menu__index">02</span>
+            <span class="menu__label">Versus</span>
+            <span class="menu__note">Live, against a person</span>
+          </button>
+          <button class="menu__item" data-go="maps" data-mode="sandbox">
+            <span class="menu__index">03</span>
+            <span class="menu__label">Sandbox</span>
+            <span class="menu__note">Blocks and a dummy &mdash; check your tracking</span>
+          </button>
+        </nav>
+
+        <p class="screen__foot">
+          Allow the camera when your browser asks. Sit so your head and both hands
+          are in frame.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== map select ===================== -->
+    <section class="screen" id="screen-maps" hidden>
+      <div class="screen__body screen__body--wide">
+        <p class="screen__eyebrow">choose your ground</p>
+        <h2 class="screen__heading" id="maps-heading">Fight</h2>
+        <div class="maps" id="maps-list"></div>
+        <button class="linkbtn screen__back" data-go="welcome">&larr; back</button>
+      </div>
+    </section>
 
     <!-- ===================== HUD overlay ===================== -->
     <div class="hud">

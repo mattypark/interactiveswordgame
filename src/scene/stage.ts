@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import type { PlayVolume } from '../hands/project.js';
+import type { MapDefinition } from '../maps/registry.js';
 
 export type ViewMode = 'third' | 'first';
 
@@ -13,6 +14,8 @@ export interface Stage {
   view: ViewMode;
   /** Move the camera between watching the box and standing in it. */
   setView(mode: ViewMode, volume: PlayVolume): void;
+  /** Repaint the background, fog and lights for a map. */
+  applyMap(map: MapDefinition): void;
   render(): void;
 }
 
@@ -61,7 +64,8 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   controls.maxPolarAngle = Math.PI * 0.495;
   controls.update();
 
-  scene.add(new THREE.HemisphereLight(0x9fb0ff, 0x1a1b26, 1.15));
+  const hemi = new THREE.HemisphereLight(0x9fb0ff, 0x1a1b26, 1.15);
+  scene.add(hemi);
 
   const key = new THREE.DirectionalLight(0xfff2e0, 1.35);
   key.position.set(1.4, 2.4, 1.2);
@@ -101,6 +105,18 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     controls,
     get view() {
       return view;
+    },
+    applyMap(map) {
+      (scene.background as THREE.Color).setHex(map.background);
+      const fog = scene.fog as THREE.Fog;
+      fog.color.setHex(map.background);
+      fog.near = map.fog.near;
+      fog.far = map.fog.far;
+
+      hemi.color.setHex(map.lights.hemiSky);
+      hemi.groundColor.setHex(map.lights.hemiGround);
+      key.color.setHex(map.lights.key);
+      fill.color.setHex(map.lights.fill);
     },
     setView(mode, volume) {
       view = mode;
