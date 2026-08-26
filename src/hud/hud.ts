@@ -13,7 +13,7 @@ export type HudAction =
   | { type: 'swap-hands' }
   | { type: 'set-origin' }
   | { type: 'toggle-view' }
-  | { type: 'setup'; action: 'start' | 'skip' }
+  | { type: 'setup'; action: 'start' | 'skip' | 'capture' }
   | { type: 'calibrate'; step: 'rest' | 'max' | 'reset' };
 
 type HudHandler = (action: HudAction) => void;
@@ -77,6 +77,7 @@ export class Hud {
     setupPrompt: el('setup-prompt'),
     setupProgress: el('setup-progress'),
     setupSkip: el<HTMLButtonElement>('setup-skip'),
+    setupCapture: el<HTMLButtonElement>('setup-capture'),
     fightHud: el('fight-hud'),
     fightYou: el('fight-you'),
     fightThem: el('fight-them'),
@@ -135,6 +136,10 @@ export class Hud {
 
     this.nodes.setupSkip.addEventListener('click', () => {
       this.emit({ type: 'setup', action: 'skip' });
+    });
+
+    this.nodes.setupCapture.addEventListener('click', () => {
+      this.emit({ type: 'setup', action: 'capture' });
     });
 
     document.querySelectorAll<HTMLButtonElement>('[data-calib]').forEach((button) => {
@@ -349,7 +354,9 @@ export class Hud {
   }
 
   /** Drive the guided setup overlay. Pass null to hide it. */
-  setSetup(state: { step: string; prompt: string; progress: number } | null): void {
+  setSetup(
+    state: { step: string; prompt: string; progress: number; steadiness: number } | null,
+  ): void {
     const { nodes } = this;
     const hidden = state === null;
     if (nodes.setupOverlay.hidden !== hidden) nodes.setupOverlay.hidden = hidden;
@@ -362,6 +369,12 @@ export class Hud {
     if (this.previous.get('setupProgress') !== String(percent)) {
       this.previous.set('setupProgress', String(percent));
       nodes.setupProgress.style.width = `${percent}%`;
+    }
+
+    const unsteady = state.steadiness < 0.45;
+    if (this.previous.get('setupSteady') !== String(unsteady)) {
+      this.previous.set('setupSteady', String(unsteady));
+      nodes.setupProgress.classList.toggle('is-unsteady', unsteady);
     }
   }
 

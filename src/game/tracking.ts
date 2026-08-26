@@ -137,11 +137,12 @@ export class Tracking {
           this.calibration.reset();
           this.hands.clearOrigin();
         }
-        this.setup.start();
+        this.setup.start(performance.now());
         return true;
 
       case 'setup':
-        if (action.action === 'start') this.setup.start();
+        if (action.action === 'start') this.setup.start(performance.now());
+        else if (action.action === 'capture') this.setup.captureNow();
         else {
           this.setup.cancel();
           this.setupOffered = true;
@@ -188,8 +189,7 @@ export class Tracking {
     const visible = this.primary();
     this.calibration.update(visible?.curl ?? null);
 
-    const visibleRuntime = this.runtimes.find((runtime) => runtime.state.present);
-    this.updateSetup(visible, visibleRuntime?.velocity.speed ?? 0);
+    this.updateSetup(visible, nowMs);
 
     for (const runtime of this.runtimes) {
       const { state, velocity } = runtime;
@@ -275,11 +275,11 @@ export class Tracking {
     rig.headDepth = null;
   }
 
-  private updateSetup(visible: HandState | null, handSpeed: number): void {
+  private updateSetup(visible: HandState | null, nowMs: number): void {
     // Offer it once, the first time there's a hand to work with.
     if (!this.setupOffered && !this.setup.running && visible) {
       this.setupOffered = true;
-      this.setup.start();
+      this.setup.start(nowMs);
     }
 
     if (this.setup.running) {
@@ -290,9 +290,17 @@ export class Tracking {
               raw: visible.raw,
               depth: visible.depth,
               curl: visible.curl,
-              speed: handSpeed,
+              position: visible.anchor,
+              now: nowMs,
             }
-          : { present: false, raw: { x: 0.5, y: 0.5 }, depth: 0, curl: null, speed: 0 },
+          : {
+              present: false,
+              raw: { x: 0.5, y: 0.5 },
+              depth: 0,
+              curl: null,
+              position: { x: 0, y: 0, z: 0 },
+              now: nowMs,
+            },
       );
     }
 
@@ -308,6 +316,7 @@ export class Tracking {
             step: SETUP_STEP_LABEL[this.setup.step] ?? 'Setup',
             prompt: this.setup.prompt,
             progress: this.setup.progress,
+            steadiness: this.setup.steadiness,
           }
         : null,
     );

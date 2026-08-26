@@ -389,9 +389,22 @@ body {
   transition: width 80ms linear;
 }
 
+.setup-overlay__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
 .setup-overlay__skip {
-  margin-top: 14px;
   font-size: 11px;
+}
+
+/* The bar goes amber while the hand is wandering, so it's obvious that
+   holding steadier is what's being asked for. */
+.setup-overlay__fill.is-unsteady {
+  background: #ffb454;
 }
 
 /* ================================================================

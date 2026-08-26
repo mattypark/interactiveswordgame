@@ -184,9 +184,17 @@ That measures both things it needs: how high and how far away you actually sit,
 and how far your fingers travel between open and closed. Press **C** to run it
 again, **Esc** to skip.
 
-Every capture waits for your hand to be *still* first. Grabbing the centre on
-the first frame a hand appears catches it midway through being raised into
-frame, which is how you end up centred on the edge of your own reach.
+Every capture waits for your hand to be *still* first — but "still" is judged by
+how far your hand has actually wandered over the last three-quarters of a
+second, not by counting frames under a speed threshold. Tracking jitter throws
+speed spikes constantly, and a consecutive-frame counter is reset by any one of
+them, so it could sit there forever without telling you why. The spread is also
+measured between the 15th and 85th percentiles, so an occasional wild frame
+from the tracker doesn't count as you moving.
+
+The bar goes amber when you're wobbling, eases back rather than snapping to
+zero, and after seven seconds it just takes what it has — being roughly
+calibrated beats being stuck. **Capture now** commits immediately.
 
 Recentring covers height and distance only, never left/right — the middle of
 the camera frame stays the middle of the box, because shifting that sideways

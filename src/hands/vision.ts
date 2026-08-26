@@ -15,6 +15,16 @@ import { rig } from '../state/rig.js';
  * frame. Everything downstream reads `latest` — this class never touches the
  * scene, so tracking failures can't take rendering down with them.
  */
+/**
+ * Face detection runs at this rate, not once per rendered frame.
+ *
+ * Two MediaPipe graphs per frame roughly doubles the per-frame cost, and the
+ * frame rate is what every filter in this codebase is tuned against — halving
+ * it makes the hands visibly stutter. A head barely moves between frames, so
+ * ten times a second is plenty for something that then gets smoothed anyway.
+ */
+const FACE_INTERVAL_MS = 100;
+
 export class Vision {
   latest: HandLandmarkerResult | null = null;
   /** Most confident face in the last frame, or null. */
@@ -27,6 +37,13 @@ export class Vision {
   private tracker: HandLandmarker | null = null;
   private faceTracker: FaceDetector | null = null;
   private lastVideoTime = -1;
+  private lastFaceMs = -Infinity;
+
+  /**
+   * Whether to look for a face at all. Off in the sandbox, where nothing reads
+   * it — the cheapest model is the one that doesn't run.
+   */
+  faceEnabled = false;
 
   get frameSize(): { width: number; height: number } | null {
     return this.feed ? { width: this.feed.width, height: this.feed.height } : null;
@@ -93,7 +110,8 @@ export class Vision {
       rig.hands = result.landmarks.length;
       if (result.landmarks.length > 0) rig.rx += 1;
 
-      if (this.faceTracker) {
+      if (this.faceTracker && this.faceEnabled && timestamp - this.lastFaceMs >= FACE_INTERVAL_MS) {
+        this.lastFaceMs = timestamp;
         // Most confident detection wins — a reflection or a poster on the wall
         // shouldn't out-vote the person sitting in front of the camera.
         const faces = this.faceTracker.detectForVideo(video, timestamp).detections;
@@ -106,6 +124,9 @@ export class Vision {
                   : best,
               );
         rig.faces = faces.length;
+      } else if (!this.faceEnabled) {
+        this.latestFace = null;
+        rig.faces = 0;
       }
     } catch (error) {
       // A single bad frame shouldn't kill tracking; surface it and carry on.

@@ -58,8 +58,10 @@ function loadMap(map: MapDefinition): void {
         : new FightWorld(tracking);
   stage.scene.add(world.group);
 
-  // The editor toolbar only means anything in the sandbox.
+  // The editor toolbar only means anything in the sandbox, and neither does
+  // face detection — the cheapest model is the one that doesn't run.
   hud.setToolbarVisible(map.mode === 'sandbox');
+  tracking.vision.faceEnabled = map.mode === 'fight';
   hud.setVisible(true);
   tracking.setVisible(true);
 }
