@@ -56,6 +56,28 @@
 
     <!-- ===================== HUD overlay ===================== -->
     <div class="hud">
+      <!-- fight scoreboard: only up during a match -->
+      <div class="fight" id="fight-hud" hidden>
+        <div class="fight__side fight__side--you">
+          <div class="fight__name">You</div>
+          <div class="fight__bar"><div class="fight__fill" id="fight-you"></div></div>
+          <div class="fight__rounds" id="fight-rounds-you"></div>
+        </div>
+        <div class="fight__centre">
+          <div class="fight__clock" id="fight-clock">90</div>
+          <div class="fight__round" id="fight-round">Round 1</div>
+        </div>
+        <div class="fight__side fight__side--them">
+          <div class="fight__name">Them</div>
+          <div class="fight__bar fight__bar--mirror">
+            <div class="fight__fill fight__fill--them" id="fight-them"></div>
+          </div>
+          <div class="fight__rounds" id="fight-rounds-them"></div>
+        </div>
+      </div>
+
+      <div class="banner" id="fight-banner" hidden><span id="fight-banner-text"></span></div>
+
       <!-- guided first-run setup: centre point, then grip range -->
       <div class="setup-overlay" id="setup-overlay" hidden>
         <div class="setup-overlay__card">

@@ -59,7 +59,7 @@ at runtime and the app works offline after first load.
 | 10 | Guided setup, solid hands | done |
 | 11 | Welcome screen, map select, mode shell | done |
 | 12 | Head tracking — your head is a target | |
-| 13 | A fighter that moves and hits back | |
+| 13 | A fighter that moves and hits back | done |
 | 14 | Live versus over Convex | |
 
 ## Setup keys
@@ -113,6 +113,24 @@ deep into the scene. Perspective does the rest, so it grows and shrinks.
 of your face at arm's length, and the dummy and the NPC loom at real scale.
 Orbit is off in first person, since orbiting would walk the camera off your own
 head.
+
+## Fighting
+
+Straight punches only. A punch counts when your fist is moving fast **and**
+travelling along the line to their head — a hook that happens to pass through
+does nothing. That alignment requirement is what makes the game about aim
+rather than about flailing at the camera.
+
+Damage scales with speed and with how square you landed it. Their guard cuts
+it to a third.
+
+The opponent closes distance, backs off when you crowd it, and telegraphs
+every punch with a visible wind-up — an opponent you can't read isn't
+difficult, just unfair. It guards when it reads your wind-up, and how often it
+manages that is the difficulty knob. Step back during its strike and it whiffs.
+
+Two rounds wins the match. Ninety seconds a round; whoever's ahead on health
+takes it if the clock runs out.
 
 ## The dummy and the NPC
 

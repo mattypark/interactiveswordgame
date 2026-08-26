@@ -6,6 +6,7 @@ import { Router } from './app/router.js';
 import { findMap, type MapDefinition } from './maps/registry.js';
 import { Tracking } from './game/tracking.js';
 import { SandboxWorld } from './game/sandbox.js';
+import { FightWorld } from './game/fight.js';
 import { Hud } from './hud/hud.js';
 import { rig } from './state/rig.js';
 
@@ -23,7 +24,7 @@ tracking.addTo(stage.scene);
 
 /** Scenery and grid for the loaded map — replaced wholesale on a map change. */
 let mapScenery: THREE.Object3D | null = null;
-let world: SandboxWorld | null = null;
+let world: SandboxWorld | FightWorld | null = null;
 let currentMap: MapDefinition | null = null;
 
 function loadMap(map: MapDefinition): void {
@@ -44,10 +45,8 @@ function loadMap(map: MapDefinition): void {
   stage.scene.add(scenery);
   mapScenery = scenery;
 
-  if (map.mode === 'sandbox') {
-    world = new SandboxWorld(tracking);
-    stage.scene.add(world.group);
-  }
+  world = map.mode === 'sandbox' ? new SandboxWorld(tracking) : new FightWorld(tracking);
+  stage.scene.add(world.group);
 
   // The editor toolbar only means anything in the sandbox.
   hud.setToolbarVisible(map.mode === 'sandbox');
@@ -89,6 +88,7 @@ function frame(): void {
   if (router.screen === 'playing') world?.update(dt, now);
 
   hud.sync(rig);
+  hud.syncFight(router.screen === 'playing' ? rig.fight : null);
   hud.setCalibrationState(tracking.calibration.status);
   if (tracking.vision.error) hud.setNotice(tracking.vision.error);
   stage.render();

@@ -10,6 +10,20 @@ export type ToolMode = 'select' | 'move' | 'rotate' | 'scale' | 'edit' | 'warp';
 
 export type LinkState = 'idle' | 'connecting' | 'connected' | 'error';
 
+/** Match state, mirrored out of the fight so the HUD can draw it. */
+export interface FightHud {
+  active: boolean;
+  phase: 'ready' | 'fighting' | 'knockdown' | 'over';
+  you: number;
+  them: number;
+  roundsYou: number;
+  roundsThem: number;
+  round: number;
+  timeLeft: number;
+  winner: 'you' | 'them' | null;
+  lastRoundWinner: 'you' | 'them' | null;
+}
+
 export interface Rig {
   mode: ToolMode;
 
@@ -56,6 +70,9 @@ export interface Rig {
   /** Speed of the most recent strike, metres per second. */
   lastHitSpeed: number | null;
 
+  /** Null outside a fight. */
+  fight: FightHud | null;
+
   /** Grab state, surfaced verbatim in the `hit: … target: … held: …` line. */
   hit: boolean;
   target: string | null;
@@ -90,6 +107,8 @@ export const rig: Rig = {
 
   hits: 0,
   lastHitSpeed: null,
+
+  fight: null,
 
   hit: false,
   target: null,

@@ -18,6 +18,9 @@ export type HudAction =
 
 type HudHandler = (action: HudAction) => void;
 
+/** Round pips drawn per fighter — matches ROUNDS_TO_WIN in match.ts. */
+const ROUNDS_SHOWN = 2;
+
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`HUD element #${id} missing from index.html`);
@@ -74,6 +77,15 @@ export class Hud {
     setupPrompt: el('setup-prompt'),
     setupProgress: el('setup-progress'),
     setupSkip: el<HTMLButtonElement>('setup-skip'),
+    fightHud: el('fight-hud'),
+    fightYou: el('fight-you'),
+    fightThem: el('fight-them'),
+    fightRoundsYou: el('fight-rounds-you'),
+    fightRoundsThem: el('fight-rounds-them'),
+    fightClock: el('fight-clock'),
+    fightRound: el('fight-round'),
+    fightBanner: el('fight-banner'),
+    fightBannerText: el('fight-banner-text'),
     pipVideo: el<HTMLVideoElement>('pip-video'),
   };
 
@@ -254,6 +266,71 @@ export class Hud {
 
   setCalibrationState(text: string): void {
     this.nodes.calibState.textContent = text;
+  }
+
+  /** Draw the scoreboard, or hide it outside a fight. */
+  syncFight(fight: Rig['fight']): void {
+    const { nodes } = this;
+    const hidden = fight === null;
+    if (nodes.fightHud.hidden !== hidden) nodes.fightHud.hidden = hidden;
+    if (!fight) {
+      if (!nodes.fightBanner.hidden) nodes.fightBanner.hidden = true;
+      return;
+    }
+
+    this.writeWidth('fightYou', nodes.fightYou, fight.you);
+    this.writeWidth('fightThem', nodes.fightThem, fight.them);
+
+    const seconds = Math.ceil(fight.timeLeft);
+    this.write('fightClock', nodes.fightClock, String(seconds));
+    const low = seconds <= 10;
+    if (this.previous.get('fightClockLow') !== String(low)) {
+      this.previous.set('fightClockLow', String(low));
+      nodes.fightClock.classList.toggle('is-low', low);
+    }
+
+    this.write('fightRound', nodes.fightRound, `Round ${fight.round}`);
+    this.writePips('you', nodes.fightRoundsYou, fight.roundsYou);
+    this.writePips('them', nodes.fightRoundsThem, fight.roundsThem);
+
+    // One banner for the three moments worth interrupting for.
+    const banner =
+      fight.phase === 'over'
+        ? fight.winner === 'you'
+          ? 'YOU WIN'
+          : 'YOU LOSE'
+        : fight.phase === 'knockdown'
+          ? fight.lastRoundWinner === null
+            ? 'DRAW'
+            : fight.lastRoundWinner === 'you'
+              ? 'DOWN'
+              : 'YOU ARE DOWN'
+          : null;
+
+    if (this.previous.get('banner') !== (banner ?? '')) {
+      this.previous.set('banner', banner ?? '');
+      nodes.fightBannerText.textContent = banner ?? '';
+      nodes.fightBanner.hidden = banner === null;
+    }
+  }
+
+  private writeWidth(key: string, node: HTMLElement, percent: number): void {
+    const rounded = Math.round(percent);
+    if (this.previous.get(key) === String(rounded)) return;
+    this.previous.set(key, String(rounded));
+    node.style.width = `${rounded}%`;
+  }
+
+  private writePips(key: string, node: HTMLElement, won: number): void {
+    if (this.previous.get(`pips-${key}`) === String(won)) return;
+    this.previous.set(`pips-${key}`, String(won));
+    node.replaceChildren(
+      ...Array.from({ length: ROUNDS_SHOWN }, (_, index) => {
+        const pip = document.createElement('i');
+        pip.className = index < won ? 'fight__pip fight__pip--won' : 'fight__pip';
+        return pip;
+      }),
+    );
   }
 
   /** Hide the whole in-game HUD while a menu is up. */

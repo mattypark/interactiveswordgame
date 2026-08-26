@@ -26,6 +26,9 @@
     "src/interact/impact.ts",
     "src/interact/npc-brain.ts",
     "src/hud/setup.ts",
-    "src/hands/head.ts"
+    "src/hands/head.ts",
+    "src/game/punch.ts",
+    "src/game/match.ts",
+    "src/game/fight-ai.ts"
   ]
 }
